@@ -1,0 +1,3310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>コードブルー・ダンジョン ～急変ラッシュを生き残れ～ (8-BIT EDITION)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+
+        * {
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        body {
+            font-family: 'DotGothic16', monospace, sans-serif;
+            background-color: #09060e;
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            position: fixed;
+            inset: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ファミコン筐体フレーム */
+        .famicom-shell {
+            width: 100%;
+            max-width: 470px;
+            height: 100%;
+            max-height: 930px;
+            background: linear-gradient(180deg, #7f1d1d 0%, #500b0b 100%);
+            border: 3px solid #d4af37;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0,0,0,0.95), inset 0 0 12px rgba(255,255,255,0.15);
+        }
+
+        @media (min-width: 500px) {
+            .famicom-shell {
+                height: 97dvh;
+                border-radius: 18px;
+            }
+        }
+
+        /* ドット絵キャンバス */
+        #game-canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #05070d;
+            cursor: pointer;
+        }
+
+        /* ブラウン管スキャンライン演出 */
+        .crt-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            z-index: 15;
+        }
+
+        /* ファミコン風ウィンドウ枠 */
+        .nes-box {
+            background: #04060c;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 0 2px #000000, 0 8px 24px rgba(0,0,0,0.85);
+        }
+
+        /* アナログスティック＆ボタンのアクティブ演出 */
+        .joystick-base {
+            background: radial-gradient(circle at 50% 50%, #111827 0%, #1f2937 70%, #090d16 100%);
+            border: 3px solid #4b5563;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.85), 0 3px 0 #090d16;
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-stick {
+            background: radial-gradient(circle at 35% 35%, #f87171 0%, #dc2626 55%, #7f1d1d 100%);
+            border: 2px solid #fecaca;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.7), inset 0 2px 3px rgba(255,255,255,0.45);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            transition: transform 0.04s linear;
+        }
+        .joystick-stick.active {
+            background: radial-gradient(circle at 35% 35%, #fde047 0%, #ef4444 60%, #991b1b 100%);
+            border-color: #ffffff;
+            transition: none;
+        }
+
+        .ab-btn {
+            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+            border: 2px solid #fca5a5;
+            box-shadow: 0 4px 0 #450a0a, inset 0 2px 3px rgba(255,255,255,0.4);
+            transition: transform 0.05s;
+        }
+        .ab-btn:active, .ab-btn.pressed {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #450a0a, inset 0 1px 2px rgba(255,255,255,0.2);
+        }
+
+        .light-btn {
+            background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+            border: 2px solid #fde68a;
+            box-shadow: 0 4px 0 #451a03, inset 0 2px 3px rgba(255,255,255,0.45);
+            transition: transform 0.05s;
+        }
+        .light-btn:active, .light-btn.pressed {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #451a03, inset 0 1px 2px rgba(255,255,255,0.2);
+        }
+
+        .gold-plate {
+            background: linear-gradient(135deg, #f3e5ab 0%, #d4af37 50%, #aa820a 100%);
+            color: #450a0a;
+        }
+
+        /* ショップ等の縦スクロール許可設定（子要素も含めてタッチスクロールを有効化） */
+        .scrollable-y, .scrollable-y * {
+            touch-action: pan-y !important;
+        }
+        .scrollable-y {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        .scrollable-y::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollable-y::-webkit-scrollbar-track {
+            background: #0f172a;
+            border-left: 1px solid #334155;
+        }
+        .scrollable-y::-webkit-scrollbar-thumb {
+            background: #f59e0b;
+            border-radius: 2px;
+        }
+
+        @keyframes blink-8bit {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+        .blink-text {
+            animation: blink-8bit 0.8s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="famicom-shell">
+        
+        <!-- 上部：8-BIT ステータス HUD（高さ固定・改行防止で画面の伸縮を防止） -->
+        <header class="bg-black border-b-2 border-amber-400 px-2 py-1 shrink-0 z-20">
+            <!-- 1段目：レベル・患者数・称号・時計・AI切替・サウンド -->
+            <div class="flex items-center justify-between text-[10px] mb-1 gap-1 whitespace-nowrap overflow-hidden h-5">
+                <div class="flex items-center gap-1 min-w-0 overflow-hidden">
+                    <span class="bg-red-700 text-amber-200 px-1 py-0.5 rounded-sm font-bold border border-amber-400 text-[10px] shrink-0" id="hud-level">LV.1</span>
+                    <span class="text-cyan-300 font-bold text-[10px] shrink-0" id="hud-patients">患者:3名</span>
+                    <span class="text-amber-300 text-[9px] font-bold bg-slate-900 border border-amber-500/50 px-1 py-0.5 rounded-sm truncate" id="hud-perks" title="強化特典">🔰新人</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <div class="bg-slate-900 border border-slate-600 px-1 py-0.5 rounded-sm flex items-center gap-0.5">
+                        <span class="text-amber-400 text-[9px]">🌙</span>
+                        <span id="hud-clock" class="text-white font-bold text-[10px] tracking-wider">22:00</span>
+                    </div>
+                    <button id="btn-robo" onclick="toggleRobo()" class="bg-cyan-950 hover:bg-cyan-800 text-cyan-200 border border-cyan-400 px-1 py-0.5 rounded-sm text-[9px] font-bold whitespace-nowrap">
+                        🤖ロボ:ON
+                    </button>
+                    <button id="btn-ai" onclick="toggleAiMode()" class="bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-400 px-1 py-0.5 rounded-sm text-[9px] font-bold whitespace-nowrap">
+                        🤖AI:OFF
+                    </button>
+                    <button id="btn-sound" onclick="toggleSound()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/60 px-1 py-0.5 rounded-sm text-[9px] whitespace-nowrap">
+                        🔊ON
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2段目：精神力(HP) ＆ 懐中電灯バッテリー ＆ カフェイン ＆ 所持ポイント -->
+            <div class="grid grid-cols-12 gap-1 items-center text-[9px] whitespace-nowrap h-4">
+                <!-- 精神力 -->
+                <div class="col-span-3 flex items-center gap-0.5">
+                    <span class="text-rose-400 font-bold shrink-0">❤️</span>
+                    <div class="w-full h-2 bg-slate-900 border border-white p-0.5">
+                        <div id="hud-hp-bar" class="h-full bg-rose-500 transition-all duration-100" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <!-- ライト電池 -->
+                <div class="col-span-3 flex items-center gap-0.5">
+                    <span class="text-amber-300 font-bold shrink-0">🔦</span>
+                    <div class="w-full h-2 bg-slate-900 border border-white p-0.5">
+                        <div id="hud-bat-bar" class="h-full bg-amber-400 transition-all duration-75" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <!-- カフェイン -->
+                <div class="col-span-3 flex items-center gap-0.5">
+                    <span class="text-emerald-400 font-bold shrink-0">🥤</span>
+                    <div class="w-full h-2 bg-slate-900 border border-white p-0.5">
+                        <div id="hud-caf-bar" class="h-full bg-emerald-400 transition-all duration-100" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <!-- 所持ポイント -->
+                <div class="col-span-3 text-right font-bold text-amber-300 truncate text-[10px]" id="hud-score" title="所持ナースポイント">
+                    💰0P
+                </div>
+            </div>
+
+            <!-- 3段目：専用イベント電光掲示板（北側の患者ベッドを隠さない固定バー） -->
+            <div class="mt-1 bg-slate-950 border border-amber-500/50 px-1.5 py-0.5 h-5 flex items-center justify-between gap-1 whitespace-nowrap overflow-hidden">
+                <div id="toast-banner" class="text-[10px] text-amber-300 font-bold truncate flex-1">
+                    📢 病棟巡回中：ベッド足元で[A長押し]または[患者タップ]で処置！
+                </div>
+                <span id="combo-badge" class="bg-amber-600 text-black border border-yellow-200 px-1 text-[8px] font-black shrink-0 hidden">
+                    🔥2 COMBO
+                </span>
+                <span id="ai-badge" class="bg-indigo-900 text-indigo-200 border border-indigo-400 px-1 text-[8px] font-bold shrink-0 hidden">
+                    🤖AI中
+                </span>
+            </div>
+        </header>
+
+        <!-- 中央：メインゲーム画面（Canvas） -->
+        <main class="relative flex-1 min-h-0 w-full bg-black overflow-hidden flex items-center justify-center border-x-4 border-black">
+            <canvas id="game-canvas" width="256" height="288"></canvas>
+            <div class="crt-overlay"></div>
+
+            <!-- スタート画面オーバーレイ（見切れ防止のコンパクト設計） -->
+            <div id="overlay-start" class="absolute inset-0 bg-black/92 z-30 flex flex-col items-center justify-center p-1.5 text-center overflow-hidden">
+                <div class="nes-box p-2 w-full max-w-xs max-h-full overflow-y-auto scrollable-y flex flex-col items-center">
+                    <div class="text-[9px] text-amber-400 tracking-widest leading-none mb-0.5">★ FAMICOM NIGHT SHIFT ACTION ★</div>
+                    <h1 class="text-base sm:text-lg font-bold text-cyan-300 leading-tight drop-shadow-[2px_2px_0_#0e7490]">
+                        コードブルー・ダンジョン
+                    </h1>
+                    <p class="text-[9px] text-rose-400 mb-1">～急変ラッシュを生き残れ 8-BIT～</p>
+
+                    <!-- 所持ポイント＆ステージ選択バー -->
+                    <div class="w-full bg-slate-900 border border-amber-400/80 px-1.5 py-1 mb-1 flex items-center justify-between text-[10px] whitespace-nowrap">
+                        <div class="flex items-center gap-1 min-w-0">
+                            <span class="text-amber-300 font-bold">💰所持:</span>
+                            <span id="start-points" class="text-white font-bold">0P</span>
+                            <span id="start-career-badge" class="bg-amber-950 text-amber-300 border border-amber-500/60 px-1 text-[8px] truncate">🔰新人</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="changeSelectLevel(-1)" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-500 px-1.5 py-0.5 text-[9px] font-bold">◀</button>
+                            <span id="start-select-level" class="text-cyan-300 font-bold px-0.5 text-[10px]">STAGE 1 (3名)</span>
+                            <button onclick="changeSelectLevel(1)" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-500 px-1.5 py-0.5 text-[9px] font-bold">▶</button>
+                        </div>
+                    </div>
+                    <div id="start-stage-theme" class="w-full bg-indigo-950/80 border border-indigo-400/60 px-1.5 py-0.5 mb-1 text-[9px] text-indigo-200 font-bold leading-tight">
+                        🏥 一般病棟・導入夜勤（まずは基本操作を覚えよう）
+                    </div>
+
+                    <!-- ゲームルール説明 -->
+                    <div class="bg-slate-950 border border-slate-700 w-full p-1.5 mb-1 text-left text-[9px] space-y-0.5 text-slate-200 leading-tight">
+                        <div class="flex items-start gap-1">
+                            <span class="shrink-0">🔔</span>
+                            <span><b class="text-cyan-300">点滴・オムツ・トイレ・お茶・内服</b>コールを放置すると<b class="text-amber-300">💢不穏</b>に悪化し、<b class="text-rose-400">💥転倒</b>や<b class="text-rose-500">🚨急変</b>が発生！</span>
+                        </div>
+                        <div class="flex items-start gap-1">
+                            <span class="shrink-0">💻</span>
+                            <span>空き時間に中央<b class="text-cyan-300">ナースST</b>で<b class="text-emerald-300">カルテ記録</b>するとP獲得＆3回記録で<b class="text-amber-300">インシデント残業1件免除</b>！</span>
+                        </div>
+                        <div class="flex items-start gap-1">
+                            <span class="shrink-0">🎵</span>
+                            <span>病棟ごとにコール音が<b class="text-amber-200">『メヌエット』</b>や<b class="text-pink-300">『エリーゼのために』</b>に変化！深層は<b class="text-amber-300">👑VIP患者</b>も登場！</span>
+                        </div>
+                    </div>
+
+                    <!-- 現在の強化ステータス一覧 -->
+                    <div id="start-perk-summary" class="w-full bg-slate-950/90 border border-slate-800 px-1 py-0.5 mb-1 text-[8px] text-amber-200 flex items-center justify-center gap-1 flex-wrap leading-none">
+                        <span>👟0</span><span>🔦0</span><span>💉0</span><span>🛏️0</span><span>📋0</span><span>🏥0</span><span>🛡️0</span><span>🪳0</span><span>🤖0</span><span>👑0</span>
+                    </div>
+
+                    <!-- 見守りサポートロボ ON/OFF 切替 ＆ 累計戦績バー -->
+                    <div class="w-full bg-slate-900 border border-cyan-500/50 px-1.5 py-0.5 mb-1.5 flex items-center justify-between text-[9px]">
+                        <span id="start-career-stats" class="text-cyan-200 font-bold truncate">🏆最高:STAGE 1 / 👑S定時:0回</span>
+                        <button id="start-btn-robo" onclick="toggleRobo()" class="bg-cyan-700 hover:bg-cyan-600 text-white border border-cyan-200 px-1.5 py-0.5 font-bold text-[9px] shrink-0">
+                            🤖ロボ:ON
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col gap-1 w-full">
+                        <button onclick="startSelectedStage(false)" class="w-full py-1.5 bg-red-600 hover:bg-red-500 active:translate-y-0.5 text-white font-bold text-xs border-2 border-white shadow-[0_2px_0_#7f1d1d]">
+                            ▶ 選択ステージで夜勤開始！
+                        </button>
+                        <button onclick="openShop('start')" class="w-full py-1 bg-amber-600 hover:bg-amber-500 active:translate-y-0.5 text-white font-bold text-[11px] border-2 border-amber-200 shadow-[0_2px_0_#78350f]">
+                            🛒 ポイント特典交換ショップを開く
+                        </button>
+                        <button onclick="startSelectedStage(true)" class="w-full py-1 bg-indigo-700 hover:bg-indigo-600 active:translate-y-0.5 text-indigo-100 font-bold text-[10px] border border-indigo-300">
+                            🤖 AIテストプレイを観戦する
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ステージクリア / 夜勤完了オーバーレイ -->
+            <div id="overlay-clear" class="absolute inset-0 bg-black/92 z-30 hidden flex flex-col items-center justify-center p-1.5 text-center overflow-hidden">
+                <div class="nes-box p-2.5 w-full max-w-xs max-h-full overflow-y-auto scrollable-y flex flex-col items-center">
+                    <div class="text-amber-400 text-[10px] font-bold leading-none mb-0.5">🌅 MORNING 06:00 AM</div>
+                    <h2 id="clear-title" class="text-sm sm:text-base font-bold text-cyan-300 mb-1">夜勤1日目 クリア！</h2>
+                    
+                    <div class="w-full bg-slate-950 border border-slate-700 p-1.5 mb-1.5 text-[10px] space-y-0.5 text-left">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">💉 処置達成 / 🔥最大コンボ:</span>
+                            <span id="stat-treated" class="text-cyan-300 font-bold">0回 / 0連鎖</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">💻 カルテ記録 / 🔦除霊・害虫:</span>
+                            <span id="stat-ghosts" class="text-purple-300 font-bold">0件 / 0体・0匹</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">⚠️ 転倒・転落インシデント:</span>
+                            <span id="stat-incidents" class="text-rose-400 font-bold">0件</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">📝 申し送り＆残業評価:</span>
+                            <span id="stat-rank" class="text-emerald-400 font-bold">S (定時退社 06:00)</span>
+                        </div>
+                        <div id="stat-report-box" class="bg-rose-950/60 border border-rose-500/60 px-1.5 py-0.5 text-[9px] text-rose-200 hidden leading-tight">
+                            📝 インシデントレポート執筆＆師長面談により残業発生…
+                        </div>
+                        <div class="flex justify-between border-t border-slate-800 pt-0.5">
+                            <span class="text-amber-300 font-bold">💰 現在の所持ポイント:</span>
+                            <span id="clear-points" class="text-amber-300 font-bold">0P</span>
+                        </div>
+                        <div class="border-t border-slate-800 pt-0.5 text-[9px] text-amber-200 leading-tight" id="clear-next-info">
+                            次ステージ：患者が 5名 に増えます！
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1 w-full">
+                        <button onclick="openShop('clear')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 active:translate-y-0.5 text-white font-bold text-[11px] border-2 border-amber-200 shadow-[0_2px_0_#78350f]">
+                            🛒 ポイントで特典と交換する (ショップ)
+                        </button>
+                        <button id="btn-next-stage" onclick="nextLevel()" class="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 active:translate-y-0.5 text-white font-bold text-xs border-2 border-white shadow-[0_2px_0_#155e75] truncate px-1">
+                            ▶ 次のステージへ進む (LEVEL 2)
+                        </button>
+                        <button onclick="returnToStartScreen()" class="w-full py-1 bg-slate-800 hover:bg-slate-700 active:translate-y-0.5 text-slate-200 font-bold text-[11px] border border-slate-400">
+                            🏠 スタート画面に戻る
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ゲームオーバーオーバーレイ -->
+            <div id="overlay-gameover" class="absolute inset-0 bg-black/95 z-30 hidden flex flex-col items-center justify-center p-1.5 text-center overflow-hidden">
+                <div class="nes-box p-2.5 w-full max-w-xs max-h-full overflow-y-auto scrollable-y flex flex-col items-center border-rose-500">
+                    <div class="text-rose-500 text-[10px] font-bold mb-0.5">🚨 MEDICAL COLLAPSE 🚨</div>
+                    <h2 class="text-lg sm:text-xl font-bold text-rose-500 mb-1">GAME OVER</h2>
+                    <p id="gameover-reason" class="text-[10px] text-slate-300 mb-1.5 bg-slate-950 p-1.5 border border-slate-800 w-full leading-tight">
+                        急変ラッシュにより精神力が限界に達しました…
+                    </p>
+                    <div class="text-amber-300 text-xs font-bold mb-2" id="gameover-score">
+                        所持ポイント: 0P / 到達: LEVEL 1
+                    </div>
+                    <div class="flex flex-col gap-1.5 w-full">
+                        <button onclick="openShop('gameover')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 active:translate-y-0.5 text-white font-bold text-xs border-2 border-amber-200 shadow-[0_2px_0_#78350f]">
+                            🛒 ポイントで特典強化して対策する
+                        </button>
+                        <div class="flex gap-1.5 w-full">
+                            <button onclick="retryCurrentLevel()" class="flex-1 py-1.5 bg-red-600 hover:bg-red-500 active:translate-y-0.5 text-white font-bold text-[11px] border-2 border-white">
+                                🔄 再挑戦
+                            </button>
+                            <button onclick="returnToStartScreen()" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 active:translate-y-0.5 text-slate-200 font-bold text-[11px] border-2 border-slate-400">
+                                🏠 タイトルへ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🛒 ポイント特典交換ショップ（院内売店・スキル強化）オーバーレイ -->
+            <div id="overlay-shop" class="absolute inset-0 bg-black/95 z-40 hidden flex flex-col items-center justify-center p-2.5 text-center">
+                <div class="nes-box p-3 w-full max-w-xs flex flex-col items-center border-amber-400 max-h-[94%] overflow-hidden">
+                    <div class="flex items-center justify-between w-full border-b-2 border-amber-500/60 pb-1.5 mb-2 shrink-0">
+                        <div class="text-left">
+                            <div class="text-[9px] text-amber-300">HOSPITAL PERK SHOP</div>
+                            <h2 class="text-sm font-bold text-white">🛒 ポイント特典交換所</h2>
+                        </div>
+                        <div class="bg-slate-900 border border-amber-400 px-2 py-1 text-right">
+                            <div class="text-[9px] text-slate-400">所持ポイント</div>
+                            <div id="shop-points" class="text-xs font-bold text-amber-300">💰 0P</div>
+                        </div>
+                    </div>
+
+                    <div id="shop-msg" class="w-full bg-slate-950 border border-slate-700 px-2 py-1 mb-2 text-[10px] text-cyan-300 text-left truncate shrink-0">
+                        💡 貯めたポイントで夜勤が有利になる特典と交換できます！
+                    </div>
+
+                    <!-- 特典リスト -->
+                    <div id="shop-items-container" class="scrollable-y w-full flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 mb-2.5 text-left" style="max-height: 270px;">
+                        <!-- JSで動的描画 -->
+                    </div>
+
+                    <button onclick="closeShop()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 active:translate-y-0.5 text-white font-bold text-xs border-2 border-white shadow-[0_2px_0_#0f172a] shrink-0">
+                        ↩ 元の画面に戻る
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- 下部：ファミコンコントローラーパネル（高さ固定・改行防止） -->
+        <footer class="gold-plate px-2.5 py-1 shrink-0 border-t-2 border-amber-300 select-none z-20">
+            <!-- 案内バー（1行固定で画面サイズ変動を防止） -->
+            <div class="flex items-center justify-between gap-1 text-[9px] font-bold mb-0.5 px-0.5 h-4 whitespace-nowrap overflow-hidden">
+                <span class="bg-red-900 text-amber-200 px-1 py-0.2 rounded shrink-0">🕹️足元[💊A]or[タップ]で処置</span>
+                <span id="control-status" class="text-red-950 font-black truncate text-right flex-1">巡回中</span>
+            </div>
+
+            <div class="flex items-center justify-between gap-1 h-24 sm:h-26">
+                <!-- 左側：360度アナログスティック (Virtual Thumbstick) -->
+                <div class="relative w-24 h-24 shrink-0 flex flex-col items-center justify-center">
+                    <div id="joystick-zone" class="joystick-base w-22 h-22 rounded-full flex items-center justify-center" style="width:88px;height:88px;">
+                        <!-- ガイド目盛り線 -->
+                        <div class="w-full h-0.5 bg-gray-700/50 absolute pointer-events-none"></div>
+                        <div class="h-full w-0.5 bg-gray-700/50 absolute pointer-events-none"></div>
+                        <div class="w-11 h-11 rounded-full border border-gray-600/40 absolute pointer-events-none"></div>
+                        <!-- スティックノブ -->
+                        <div id="joystick-knob" class="joystick-stick w-10 h-10 rounded-full flex items-center justify-center">
+                            <div class="w-3.5 h-3.5 rounded-full bg-white/25 border border-white/40"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 中央：お冷 / エナドリ / 📞当直医コール ショートカット -->
+                <div class="flex flex-col items-center justify-end gap-0.5 pb-1 shrink-0">
+                    <div class="text-[8px] font-black tracking-tighter text-red-900 whitespace-nowrap">FAMICOM-MEDICAL</div>
+                    <div class="flex gap-1">
+                        <div class="flex flex-col items-center">
+                            <button onclick="quickGoStation('water')" class="w-9 h-5 bg-sky-900 hover:bg-sky-800 border-2 border-sky-300 rounded-full shadow active:translate-y-0.5 text-[9px] text-white font-bold whitespace-nowrap">💧水</button>
+                            <span class="text-[7px] font-bold mt-0.5 text-red-950 whitespace-nowrap">覚醒</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <button onclick="quickGoStation('energy')" class="w-9 h-5 bg-emerald-900 hover:bg-emerald-800 border-2 border-emerald-300 rounded-full shadow active:translate-y-0.5 text-[9px] text-white font-bold whitespace-nowrap">🥤翼</button>
+                            <span class="text-[7px] font-bold mt-0.5 text-red-950 whitespace-nowrap">加速</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <button id="btn-doctor" onclick="callDoctorSupport()" class="w-10 h-5 bg-rose-900 hover:bg-rose-800 border-2 border-amber-300 rounded-full shadow active:translate-y-0.5 text-[9px] text-amber-200 font-bold whitespace-nowrap">📞Dr.1</button>
+                            <span class="text-[7px] font-bold mt-0.5 text-red-950 whitespace-nowrap">緊急応援</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右側：Bボタン(🔦ライト強照射) ＆ Aボタン(💊処置/叩く) -->
+                <div class="flex items-center gap-2 pr-0.5 shrink-0">
+                    <div class="flex flex-col items-center mt-3">
+                        <button id="btn-b" class="light-btn rounded-full flex flex-col items-center justify-center text-white font-bold whitespace-nowrap"
+                            style="width:50px;height:50px;"
+                            onpointerdown="pressActionB()" onpointerup="releaseActionB()" onpointerleave="releaseActionB()">
+                            <span class="text-xs leading-none">🔦B</span>
+                            <span class="text-[8px] font-bold text-amber-100 mt-0.5">ライト</span>
+                        </button>
+                    </div>
+                    <div class="flex flex-col items-center -mt-3">
+                        <button id="btn-a" class="ab-btn rounded-full flex flex-col items-center justify-center text-white font-bold whitespace-nowrap"
+                            style="width:52px;height:52px;"
+                            onpointerdown="pressActionA()" onpointerup="releaseActionA()" onpointerleave="releaseActionA()">
+                            <span class="text-xs leading-none">💊A</span>
+                            <span class="text-[8px] font-bold text-amber-100 mt-0.5">処置/叩</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        /* ==============================================================
+         * 1. 8-BIT WEB AUDIO シンセサイザー (効果音・BGM)
+         * ============================================================== */
+        let audioCtx = null;
+        let soundEnabled = true;
+        let bgmTick = 0;
+        let lastMinuetTime = 0;
+        let minuetPhraseIndex = 0;
+        let elisePhraseIndex = 0;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('btn-sound').innerText = soundEnabled ? '🔊ON' : '🔇OFF';
+            if (soundEnabled) {
+                initAudio();
+                playNurseCallSound();
+            }
+        }
+
+        function playTone(freq, duration, type = 'square', vol = 0.07, slideFreq = null) {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                if (slideFreq) {
+                    osc.frequency.linearRampToValueAtTime(slideFreq, audioCtx.currentTime + duration);
+                }
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        // 🎵 ナースコール音1：バッハ（ペツォールト）「メヌエット ト長調 BWV Anh.114」
+        function playMinuetCall() {
+            if (!soundEnabled) return;
+            initAudio();
+            const now = performance.now();
+            if (now - lastMinuetTime < 900) return;
+            lastMinuetTime = now;
+
+            const phrases = [
+                [
+                    { f: 587.33, d: 0.22, t: 0 },    // D5 (レ)
+                    { f: 392.00, d: 0.11, t: 240 },  // G4 (ソ)
+                    { f: 440.00, d: 0.11, t: 360 },  // A4 (ラ)
+                    { f: 493.88, d: 0.11, t: 480 },  // B4 (シ)
+                    { f: 523.25, d: 0.11, t: 600 },  // C5 (ド)
+                    { f: 587.33, d: 0.22, t: 720 },  // D5 (レ)
+                    { f: 392.00, d: 0.20, t: 960 },  // G4 (ソ)
+                    { f: 392.00, d: 0.24, t: 1200 }  // G4 (ソ)
+                ],
+                [
+                    { f: 659.25, d: 0.22, t: 0 },    // E5 (ミ)
+                    { f: 523.25, d: 0.11, t: 240 },  // C5 (ド)
+                    { f: 587.33, d: 0.11, t: 360 },  // D5 (レ)
+                    { f: 659.25, d: 0.11, t: 480 },  // E5 (ミ)
+                    { f: 739.99, d: 0.11, t: 600 },  // F#5 (ファ#)
+                    { f: 783.99, d: 0.22, t: 720 },  // G5 (ソ)
+                    { f: 392.00, d: 0.20, t: 960 },  // G4 (ソ)
+                    { f: 392.00, d: 0.24, t: 1200 }  // G4 (ソ)
+                ]
+            ];
+
+            const melody = phrases[minuetPhraseIndex % phrases.length];
+            minuetPhraseIndex++;
+
+            melody.forEach(note => {
+                setTimeout(() => {
+                    playTone(note.f, note.d, 'square', 0.055);
+                    playTone(note.f * 2, note.d * 0.85, 'triangle', 0.025);
+                }, note.t);
+            });
+        }
+
+        // 🎵 ナースコール音2：ベートーヴェン「エリーゼのために (Für Elise)」
+        function playEliseCall() {
+            if (!soundEnabled) return;
+            initAudio();
+            const now = performance.now();
+            if (now - lastMinuetTime < 900) return;
+            lastMinuetTime = now;
+
+            // フレーズ1: ミ レ# ミ レ# ミ シ レ ド ラ〜
+            // フレーズ2: ド ミ ラ シ〜 ミ ソ# シ ド〜
+            const phrases = [
+                [
+                    { f: 659.25, d: 0.11, t: 0 },    // E5 (ミ)
+                    { f: 622.25, d: 0.11, t: 125 },  // D#5 (レ#)
+                    { f: 659.25, d: 0.11, t: 250 },  // E5 (ミ)
+                    { f: 622.25, d: 0.11, t: 375 },  // D#5 (レ#)
+                    { f: 659.25, d: 0.11, t: 500 },  // E5 (ミ)
+                    { f: 493.88, d: 0.11, t: 625 },  // B4 (シ)
+                    { f: 587.33, d: 0.11, t: 750 },  // D5 (レ)
+                    { f: 523.25, d: 0.11, t: 875 },  // C5 (ド)
+                    { f: 440.00, d: 0.28, t: 1000 }  // A4 (ラ〜)
+                ],
+                [
+                    { f: 261.63, d: 0.11, t: 0 },    // C4 (ド)
+                    { f: 329.63, d: 0.11, t: 125 },  // E4 (ミ)
+                    { f: 440.00, d: 0.11, t: 250 },  // A4 (ラ)
+                    { f: 493.88, d: 0.24, t: 375 },  // B4 (シ〜)
+                    { f: 329.63, d: 0.11, t: 650 },  // E4 (ミ)
+                    { f: 415.30, d: 0.11, t: 775 },  // G#4 (ソ#)
+                    { f: 493.88, d: 0.11, t: 900 },  // B4 (シ)
+                    { f: 523.25, d: 0.28, t: 1025 }  // C5 (ド〜)
+                ]
+            ];
+
+            const melody = phrases[elisePhraseIndex % phrases.length];
+            elisePhraseIndex++;
+
+            melody.forEach(note => {
+                setTimeout(() => {
+                    playTone(note.f, note.d, 'square', 0.055);
+                    playTone(note.f * 2, note.d * 0.85, 'triangle', 0.028);
+                }, note.t);
+            });
+        }
+
+        function playNurseCallSound() {
+            const activeLvl = state.mode === 'playing' ? state.level : state.selectedLevel;
+            const cfg = getStageConfig(activeLvl || 1);
+            if (cfg.melody === 'elise') {
+                playEliseCall();
+            } else {
+                playMinuetCall();
+            }
+        }
+
+        function playSfx(name) {
+            if (!soundEnabled) return;
+            initAudio();
+            switch (name) {
+                case 'step':
+                    playTone(170 + (Math.random() * 35), 0.025, 'triangle', 0.03);
+                    break;
+                case 'call':
+                    playNurseCallSound();
+                    break;
+                case 'codeblue':
+                    playTone(1046.5, 0.08, 'square', 0.08);
+                    setTimeout(() => playTone(783.99, 0.08, 'square', 0.08), 95);
+                    break;
+                case 'heal':
+                    playTone(523.25, 0.05, 'square', 0.07);
+                    setTimeout(() => playTone(659.25, 0.05, 'square', 0.07), 55);
+                    setTimeout(() => playTone(783.99, 0.05, 'square', 0.07), 110);
+                    setTimeout(() => playTone(1046.5, 0.14, 'square', 0.08), 165);
+                    break;
+                case 'smack':
+                    playTone(150, 0.1, 'sawtooth', 0.12, 45);
+                    setTimeout(() => playTone(650, 0.08, 'square', 0.07, 980), 50);
+                    break;
+                case 'fall':
+                    playTone(240, 0.15, 'sawtooth', 0.13, 75);
+                    setTimeout(() => playTone(120, 0.28, 'sawtooth', 0.15, 45), 120);
+                    break;
+                case 'light':
+                    playTone(1200, 0.05, 'sine', 0.04, 1500);
+                    break;
+                case 'exorcise':
+                    playTone(587.33, 0.07, 'square', 0.08, 880);
+                    setTimeout(() => playTone(880, 0.08, 'square', 0.08, 1318.5), 70);
+                    setTimeout(() => playTone(1318.5, 0.22, 'triangle', 0.1, 1760), 150);
+                    break;
+                case 'energy':
+                    playTone(330, 0.06, 'square', 0.08, 660);
+                    setTimeout(() => playTone(660, 0.14, 'square', 0.08, 1320), 70);
+                    break;
+                case 'water':
+                    playTone(440, 0.07, 'triangle', 0.09, 880);
+                    setTimeout(() => playTone(880, 0.14, 'triangle', 0.09, 587), 80);
+                    break;
+                case 'ghost':
+                    playTone(720, 0.25, 'sine', 0.07, 460);
+                    break;
+                case 'spook':
+                    playTone(290, 0.25, 'sawtooth', 0.1, 110);
+                    break;
+                case 'buy':
+                    playTone(587.33, 0.06, 'square', 0.08);
+                    setTimeout(() => playTone(880, 0.06, 'square', 0.08), 65);
+                    setTimeout(() => playTone(1174.66, 0.16, 'square', 0.09), 130);
+                    break;
+                case 'error':
+                    playTone(180, 0.12, 'sawtooth', 0.08);
+                    setTimeout(() => playTone(140, 0.16, 'sawtooth', 0.08), 110);
+                    break;
+                case 'clear':
+                    const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+                    const times = [0, 110, 220, 330, 480, 620];
+                    notes.forEach((n, i) => {
+                        setTimeout(() => playTone(n, i === 5 ? 0.35 : 0.1, 'square', 0.09), times[i]);
+                    });
+                    break;
+                case 'gameover':
+                    const gNotes = [440, 415.3, 392, 349.23];
+                    gNotes.forEach((n, i) => {
+                        setTimeout(() => playTone(n, 0.25, 'sawtooth', 0.09), i * 240);
+                    });
+                    break;
+            }
+        }
+
+        /* ==============================================================
+         * 2. ドット絵（ピクセルアート）スプライト定義
+         * ============================================================== */
+        const PALETTE = {
+            '.': null,
+            'W': '#ffffff',
+            'R': '#ef4444',
+            'S': '#fdba74',
+            'H': '#291811',
+            'B': '#0f172a',
+            'C': '#38bdf8',
+            'P': '#f472b6',
+            'G': '#4ade80',
+            'Y': '#facc15',
+            'M': '#c084fc',
+            'D': '#451a03',
+            'A': '#94a3b8'
+        };
+
+        const SPRITE_NURSE_1 = [
+            "....WWWWWW....",
+            "...WWWRRWWW...",
+            "...WWWWWWWW...",
+            "..HHHHHHHHHH..",
+            "..HSSSSSSSSB..",
+            "..HSBSSSSBSB..",
+            "..HSSPSSSPSSB.",
+            "...SSSSSSSS...",
+            "..WWWWWWWWWW..",
+            ".WWWWWPPWWWWW.",
+            ".WW.WWPPWW.WW.",
+            ".SS.WWWWWW.SY.",
+            "....WWWWWW....",
+            "....WW..WW....",
+            "...RRR..WW....",
+            "........RRR..."
+        ];
+
+        const SPRITE_NURSE_2 = [
+            "....WWWWWW....",
+            "...WWWRRWWW...",
+            "...WWWWWWWW...",
+            "..HHHHHHHHHH..",
+            "..HSSSSSSSSB..",
+            "..HSBSSSSBSB..",
+            "..HSSPSSSPSSB.",
+            "...SSSSSSSS...",
+            "..WWWWWWWWWW..",
+            ".WWWWWPPWWWWW.",
+            ".WW.WWPPWW.WW.",
+            ".SS.WWWWWW.SY.",
+            "....WWWWWW....",
+            "....WW..WW....",
+            "....WW..RRR...",
+            "...RRR........"
+        ];
+
+        const SPRITE_ROACH_1 = [
+            "H..........H",
+            ".H...BB...H.",
+            "..H..HH..H..",
+            ".HH.DDDD.HH.",
+            "...DDADDD...",
+            "H.DDADDDDD.H",
+            "..DDDDDDDD..",
+            "H.DDDDDDDD.H",
+            "...DDDDDD...",
+            ".H..DDDD..H.",
+            "H....HH....H",
+            "............"
+        ];
+
+        const SPRITE_ROACH_2 = [
+            ".H........H.",
+            "..H..BB..H..",
+            "..H..HH..H..",
+            "..H.DDDD.H..",
+            "H..DDADDD..H",
+            "..DDADDDDD..",
+            "H.DDDDDDDD.H",
+            "..DDDDDDDD..",
+            "H.DDDDDDDD.H",
+            "..H.DDDD.H..",
+            ".H...HH...H.",
+            "............"
+        ];
+
+        const SPRITE_GHOST_NORMAL = [
+            "....CCCCCC....",
+            "..CCWWWWWWCC..",
+            ".CWWWWWWWWWWC.",
+            ".CWWWBWWBWWWC.",
+            "CWWWBCRWBCRWWC",
+            "CWWWWWWWWWWWWC",
+            "CWWWWBBBBWWWWC",
+            "CWWWB.WW.BWWWC",
+            ".CWWWWWWWWWWC.",
+            ".CWWWWWWWWWWC.",
+            "..CWWWWWWWWC..",
+            "..CWW.WW.WWC..",
+            "...CW.CW.WC...",
+            "...C..C...C...",
+            ".............."
+        ];
+
+        const SPRITE_GHOST_HIT = [
+            "....YYYYYY....",
+            "..YYWWWWWWYY..",
+            ".YWWWWWWWWWWY.",
+            ".YWWWRWWRWWWY.",
+            "YWWWRWWWRWWWWY",
+            "YWWWWWWWWWWWWY",
+            "YWWWRRRRRRWWWY",
+            "YWWWR.WW.RWWWY",
+            ".YWWWWWWWWWWY.",
+            ".YWWWWWWWWWWY.",
+            "..YWWWWWWWWY..",
+            "..YWW.WW.WWY..",
+            "...YW.YW.WY...",
+            "...Y..Y...Y...",
+            ".............."
+        ];
+
+        const SPRITE_ROBO = [
+            "....YYYY....",
+            ".....AA.....",
+            "..CCCCCCCC..",
+            ".CWWWWWWWWC.",
+            ".CWBBWWBBWC.",
+            ".CWWWWWWWWC.",
+            "..CCCCCCCC..",
+            ".CWWWRRWWWC.",
+            "CCWWRRRRWWCC",
+            ".CWWWRRWWWC.",
+            "..CCCCCCCC..",
+            "...AA..AA..."
+        ];
+
+        function drawSprite(ctx, matrix, x, y, scale = 1, overridePalette = null) {
+            const pal = overridePalette || PALETTE;
+            for (let r = 0; r < matrix.length; r++) {
+                const row = matrix[r];
+                for (let c = 0; c < row.length; c++) {
+                    const ch = row[c];
+                    const color = pal[ch];
+                    if (color) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(Math.floor(x + c * scale), Math.floor(y + r * scale), scale, scale);
+                    }
+                }
+            }
+        }
+
+        /* ==============================================================
+         * 3. マップ構造＆ゲーム状態管理
+         * ============================================================== */
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const W = 256;
+        const H = 288;
+
+        const STATIONS = {
+            energy: { x: 34,  y: 144, w: 28, h: 28, label: "エナドリ" },
+            desk:   { x: 128, y: 144, w: 72, h: 28, label: "ナースST" },
+            water:  { x: 222, y: 144, w: 28, h: 28, label: "お冷" }
+        };
+
+        const BED_COORDS = [
+            { id: 0, x: 36,  y: 50, standX: 36,  standY: 88, room: '北1' },
+            { id: 1, x: 96,  y: 50, standX: 96,  standY: 88, room: '北2' },
+            { id: 2, x: 160, y: 50, standX: 160, standY: 88, room: '北3' },
+            { id: 3, x: 220, y: 50, standX: 220, standY: 88, room: '北4' },
+            { id: 4, x: 36,  y: 234, standX: 36,  standY: 196, room: '南1' },
+            { id: 5, x: 96,  y: 234, standX: 96,  standY: 196, room: '南2' },
+            { id: 6, x: 160, y: 234, standX: 160, standY: 196, room: '南3' },
+            { id: 7, x: 220, y: 234, standX: 220, standY: 196, room: '南4' }
+        ];
+
+        // 🔔 多彩なナースコールの種類定義
+        const CALL_TYPES = {
+            drip:     { icon: '💉点滴', label: '点滴交換',   color: '#38bdf8', waitPanicRate: 4.2, speedMult: 1.0, basePts: 9 },
+            meds:     { icon: '💊内服', label: '定時内服薬', color: '#c084fc', waitPanicRate: 3.8, speedMult: 1.15, basePts: 11 },
+            omutsu:   { icon: '🩲オムツ', label: 'おむつ交換', color: '#fb923c', waitPanicRate: 5.2, speedMult: 0.9, basePts: 12 },
+            toilet:   { icon: '🚽トイレ', label: 'トイレ介助', color: '#a3e635', waitPanicRate: 6.0, speedMult: 0.92, basePts: 12 },
+            tea:      { icon: '🍵お茶', label: 'お茶・飲水', color: '#2dd4bf', waitPanicRate: 3.5, speedMult: 1.3, basePts: 9 },
+            diaper:   { icon: '💢不穏', label: '不穏・せん妄鎮静', color: '#facc15', waitPanicRate: 0, speedMult: 0.85, basePts: 13 },
+            codeblue: { icon: '🚨急変', label: 'コードブルー蘇生', color: '#ffffff', waitPanicRate: 0, speedMult: 0.72, basePts: 18 },
+            fakecall: { icon: '👻幻覚', label: '幻覚コール', color: '#c084fc', waitPanicRate: 0, speedMult: 1.0, basePts: 0 }
+        };
+
+        // 🏥 ステージ進行ごとの病棟テーマ＆特殊ギミック設定（ステージ10以降も特異日ローテーション＆VIP患者で無限に変化！）
+        function getStageConfig(lvl) {
+            const themes = [
+                { beds: [0, 2, 5], name: "一般病棟・新人夜勤", desc: "🎵メヌエット｜まずはオムツ・トイレ・お茶・点滴対応を覚えよう", dripMult: 1.0, panicMult: 1.05, callRate: 0.0032, blackout: false, roachMult: 0.8, melody: 'minuet', vipCount: 0, specialRule: 'normal' },
+                { beds: [0, 1, 3, 4, 6], name: "消化器内科・飲水＆トイレラッシュ", desc: "🎵エリーゼ｜🍵お茶と🚽トイレコールが多発！放置するとすぐ不穏に！", dripMult: 1.12, panicMult: 1.2, callRate: 0.0044, blackout: false, roachMult: 1.05, melody: 'elise', vipCount: 0, specialRule: 'toilet_rush' },
+                { beds: [0, 1, 2, 4, 5, 6, 7], name: "整形外科・術後せん妄とオムツの夜", desc: "🎵メヌエット｜🩲オムツ・🚽トイレ放置でベッド転落が起きやすい！", dripMult: 1.2, panicMult: 1.35, callRate: 0.0048, blackout: false, roachMult: 1.2, melody: 'minuet', vipCount: 0, specialRule: 'omutsu_rush' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "満床8名・雷雨の停電病棟", desc: "🎵エリーゼ｜⚡落雷でときどき停電！暗闇でのコール遅れに注意！", dripMult: 1.28, panicMult: 1.4, callRate: 0.0052, blackout: true, roachMult: 1.35, melody: 'elise', vipCount: 0, specialRule: 'blackout' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "認知症・徘徊転落警戒病棟", desc: "🎵メヌエット｜👑VIP1名入院！コールを待たせると超高速で不穏＆転落！", dripMult: 1.32, panicMult: 1.7, callRate: 0.0058, blackout: false, roachMult: 1.4, melody: 'minuet', vipCount: 1, specialRule: 'delirium' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "救命救急・ハイケアICU夜勤", desc: "🎵エリーゼ｜💉点滴と💊内服が急増！不穏放置で即コードブルーの危機！", dripMult: 1.75, panicMult: 1.55, callRate: 0.0064, blackout: true, roachMult: 1.55, melody: 'elise', vipCount: 1, specialRule: 'icu' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "感染症・害虫＆怪奇病棟", desc: "🎵メヌエット｜🪳害虫大発生＆👻怨霊の百鬼夜行シフト！", dripMult: 1.6, panicMult: 1.65, callRate: 0.0062, blackout: false, roachMult: 2.3, melody: 'minuet', vipCount: 1, specialRule: 'haunted' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "特別個室棟・ワガママVIP夜勤", desc: "🎵エリーゼ｜👑VIP患者2名！🍵お茶・🩲オムツ要求が激しいが処置P2.5倍！", dripMult: 1.65, panicMult: 1.75, callRate: 0.0070, blackout: false, roachMult: 1.6, melody: 'elise', vipCount: 2, specialRule: 'vip_feast' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "満月の精神・神経病棟", desc: "🎵メヌエット｜🌕満月で全患者の不穏上昇が加速！除霊・処置ボーナスUP！", dripMult: 1.7, panicMult: 1.95, callRate: 0.0072, blackout: true, roachMult: 1.75, melody: 'minuet', vipCount: 2, specialRule: 'fullmoon' },
+                { beds: [0, 1, 2, 3, 4, 5, 6, 7], name: "🚨第10夜：院長総回診・大災害パンデミック", desc: "🎵エリーゼ｜👑VIP3名＆全ギミック総力戦！乗り切れば特別報酬！", dripMult: 1.9, panicMult: 2.0, callRate: 0.0080, blackout: true, roachMult: 2.2, melody: 'elise', vipCount: 3, specialRule: 'boss' }
+            ];
+            if (lvl <= themes.length) {
+                return themes[lvl - 1];
+            }
+
+            // 🔥 ステージ11以降：飽きさせない「深層ローテーション特異日＆5階層ごとBOSS夜勤」
+            const extra = lvl - themes.length;
+            const isBossStage = (lvl % 5 === 0);
+            const useElise = (lvl % 2 === 0);
+            const songLabel = useElise ? "🎵エリーゼ" : "🎵メヌエット";
+
+            if (isBossStage) {
+                return {
+                    beds: [0, 1, 2, 3, 4, 5, 6, 7],
+                    name: `🚨第${lvl}夜：医療崩壊クライシス・BOSS夜勤`,
+                    desc: `${songLabel}｜👑VIP4名！停電・害虫・トイレ＆急変ラッシュ(報酬1.5倍!)`,
+                    dripMult: 1.95 + extra * 0.12,
+                    panicMult: 2.05 + extra * 0.14,
+                    callRate: 0.0082 + Math.min(0.004, extra * 0.0003),
+                    blackout: true,
+                    roachMult: 2.4 + extra * 0.15,
+                    melody: useElise ? 'elise' : 'minuet',
+                    vipCount: 4,
+                    specialRule: 'boss'
+                };
+            }
+
+            const deepCycles = [
+                {
+                    title: "利尿剤＆飲水フィーバー夜勤",
+                    rule: "toilet_rush",
+                    detail: "🚽トイレ＆🍵お茶コールが通常の2倍！待たせると即転落危機！",
+                    blackout: false,
+                    vip: 2
+                },
+                {
+                    title: "極寒の暴風雪・連続停電夜勤",
+                    rule: "blackout",
+                    detail: "⚡吹雪で停電が多発＆🩲オムツ・🍵温かいお茶コール急増！",
+                    blackout: true,
+                    vip: 2
+                },
+                {
+                    title: "超富裕層ロイヤルVIP病棟",
+                    rule: "vip_feast",
+                    detail: "👑VIP患者が3名入院！要求は激しいが処置ポイント大量獲得！",
+                    blackout: false,
+                    vip: 3
+                },
+                {
+                    title: "満月の百鬼夜行・せん妄病棟",
+                    rule: "fullmoon",
+                    detail: "🌕満月で不穏速度UP＆👻お化け・🪳害虫ラッシュ！",
+                    blackout: true,
+                    vip: 2
+                }
+            ];
+            const pick = deepCycles[(lvl - 11) % deepCycles.length];
+            return {
+                beds: [0, 1, 2, 3, 4, 5, 6, 7],
+                name: `深層第${lvl}夜：${pick.title}`,
+                desc: `${songLabel}｜${pick.detail}`,
+                dripMult: 1.75 + extra * 0.10,
+                panicMult: 1.85 + extra * 0.12,
+                callRate: 0.0072 + Math.min(0.0035, extra * 0.00025),
+                blackout: pick.blackout,
+                roachMult: 1.9 + extra * 0.12,
+                melody: useElise ? 'elise' : 'minuet',
+                vipCount: pick.vip,
+                specialRule: pick.rule
+            };
+        }
+
+        function getOccupiedBedsForLevel(lvl) {
+            return getStageConfig(lvl).beds;
+        }
+
+        // 🛒 本格やり込み版：全10種 × 最大Lv10（合計100段階）の長期スキルツリー
+        function makeCosts(base, step, power = 1.35) {
+            const arr = [];
+            for (let i = 0; i < 10; i++) {
+                arr.push(Math.round((base + step * i) * Math.pow(power, i) / 5) * 5);
+            }
+            return arr;
+        }
+
+        const SHOP_ITEMS = [
+            {
+                key: 'shoes',
+                icon: '👟',
+                name: '韋駄天ナースシューズ',
+                maxLv: 10,
+                costs: makeCosts(30, 15, 1.28),
+                desc: '移動スピードが1段階につき+5%ずつ着実にアップ！(最大+50%)'
+            },
+            {
+                key: 'light',
+                icon: '🔦',
+                name: 'ハイパワーLEDペンライト',
+                maxLv: 10,
+                costs: makeCosts(35, 18, 1.28),
+                desc: '照射距離・角度・除霊力・バッテリー持続時間が段階的に向上！'
+            },
+            {
+                key: 'tech',
+                icon: '💉',
+                name: '熟練の点滴・蘇生テクニック',
+                maxLv: 10,
+                costs: makeCosts(40, 20, 1.3),
+                desc: 'Aボタン/タップでの処置スピードが+7%ずつ向上＆処置時の精神回復！'
+            },
+            {
+                key: 'sensor',
+                icon: '🛏️',
+                name: '離床センサー＆低床ベッド',
+                maxLv: 10,
+                costs: makeCosts(45, 22, 1.3),
+                desc: '不穏状態の患者がベッドから転倒・転落するまでの猶予時間を大幅延長！'
+            },
+            {
+                key: 'manual',
+                icon: '📋',
+                name: '医療安全＆ドクター連携強化',
+                maxLv: 10,
+                costs: makeCosts(45, 22, 1.3),
+                desc: '💊内服と💻カルテ入力を高速化！Lv5以上で[📞Dr.応援]が2回使用可能に！'
+            },
+            {
+                key: 'monitor',
+                icon: '🏥',
+                name: '最新鋭セントラルモニター',
+                maxLv: 10,
+                costs: makeCosts(55, 25, 1.32),
+                desc: '全ベッドの点滴減少・不穏上昇スピードを少しずつ精密抑制！'
+            },
+            {
+                key: 'mental',
+                icon: '🛡️',
+                name: '強靭メンタル＆カフェイン耐性',
+                maxLv: 10,
+                costs: makeCosts(40, 18, 1.28),
+                desc: '急変・転落・害虫接触ダメージを軽減し、エナドリ中毒になりにくくなる！'
+            },
+            {
+                key: 'trap',
+                icon: '🪳',
+                name: '医療用ゴキブリホイホイ改',
+                maxLv: 10,
+                costs: makeCosts(50, 20, 1.3),
+                desc: '病棟四隅に粘着罠を設置！Lv上昇で害虫減速＆罠での自動捕獲率UP！'
+            },
+            {
+                key: 'robo',
+                icon: '🤖',
+                name: '見守りサポートロボ開発',
+                maxLv: 10,
+                costs: makeCosts(90, 40, 1.32),
+                desc: '病棟を巡回し、重症ベッドの悪化や転落進行を一時的に食い止める補助ロボ！'
+            },
+            {
+                key: 'crown',
+                icon: '👑',
+                name: '伝説の黄金ナースキャップ',
+                maxLv: 10,
+                costs: makeCosts(100, 45, 1.35),
+                desc: '獲得ポイントがLv毎に+10%増加(最大+100%)！最高峰ナースの証！'
+            }
+        ];
+
+        let state = {
+            mode: 'start',
+            aiMode: false,
+            level: 1,
+            selectedLevel: 1,
+            maxUnlockedLevel: 1,
+            stageRanks: {}, // { 1: 'S', 2: 'A', ... }
+            points: 0,
+            score: 0,
+            hp: 100,
+            battery: 100,
+            caffeine: 0,
+            timeSec: 0,
+            maxTimeSec: 54,
+            treatedCount: 0,
+            roachKillCount: 0,
+            ghostKillCount: 0,
+            incidentCount: 0,
+            chartCount: 0,
+            chartProgress: 0,
+            combo: 0,
+            maxCombo: 0,
+            comboTimer: 0,
+            doctorCallsLeft: 1,
+            doctorActiveTimer: 0,
+            slipperSwingTimer: 0,
+            blackoutTimer: 0,
+            roboEnabled: true,
+            frameCount: 0,
+            shopReturnOverlay: 'start',
+            upgrades: {
+                shoes: 0,
+                light: 0,
+                tech: 0,
+                sensor: 0,
+                manual: 0,
+                monitor: 0,
+                mental: 0,
+                trap: 0,
+                robo: 0,
+                crown: 0
+            },
+            floatingTexts: [],
+            beds: [],
+            roaches: [],
+            ghosts: []
+        };
+
+        let supportRobo = {
+            x: 128,
+            y: 120,
+            targetX: 128,
+            targetY: 120,
+            cooldown: 0,
+            assistVisualTimer: 0
+        };
+
+        let nurse = {
+            x: 128,
+            y: 144,
+            facingAngle: -Math.PI / 2,
+            speed: 1.38,
+            targetX: null,
+            targetY: null,
+            targetType: null,
+            targetId: null,
+            interactBedId: null,
+            animFrame: 0,
+            animTimer: 0,
+            isTreating: false,
+            isFlashing: false,
+            spookTimer: 0
+        };
+
+        let pad = { up: false, down: false, left: false, right: false, a: false, b: false };
+
+        // 🕹️ アナログスティックの状態管理
+        let joystick = {
+            active: false,
+            pointerId: null,
+            vx: 0,
+            vy: 0,
+            magnitude: 0
+        };
+
+        /* ==============================================================
+         * 4. ゲーム初期化・レベル開始・ショップ・ナビゲーション
+         * ============================================================== */
+        function getPointMultiplier() {
+            const crownBonus = (state.upgrades.crown || 0) * 0.10;
+            const comboBonus = Math.min(0.80, state.combo * 0.10);
+            return 1.0 + crownBonus + comboBonus;
+        }
+
+        function addCombo(label = "") {
+            state.combo++;
+            if (state.combo > state.maxCombo) {
+                state.maxCombo = state.combo;
+            }
+            state.comboTimer = 11.0; // 11秒以内に次の処置や退治をするとコンボ継続
+            updateComboUi();
+            if (state.combo >= 3 && label) {
+                addFloatingText(nurse.x, nurse.y - 16, `🔥${state.combo} COMBO!`, "#fde047");
+            }
+        }
+
+        function resetCombo() {
+            if (state.combo >= 3) {
+                addFloatingText(nurse.x, nurse.y - 14, `💦コンボ終了`, "#94a3b8");
+            }
+            state.combo = 0;
+            state.comboTimer = 0;
+            updateComboUi();
+        }
+
+        function updateComboUi() {
+            const el = document.getElementById('combo-badge');
+            if (!el) return;
+            if (state.combo >= 2 && state.mode === 'playing') {
+                el.classList.remove('hidden');
+                el.innerText = state.combo >= 5 ? `🌟${state.combo} FEVER!` : `🔥${state.combo} COMBO`;
+                el.className = state.combo >= 5
+                    ? 'bg-fde047 bg-amber-400 text-black border border-white px-1 text-[8px] font-black shrink-0 blink-text'
+                    : 'bg-amber-600 text-white border border-amber-200 px-1 text-[8px] font-bold shrink-0';
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function addPoints(basePts) {
+            const earned = Math.max(1, Math.round(basePts * getPointMultiplier()));
+            state.points += earned;
+            state.score += earned;
+            return earned;
+        }
+
+        function getTotalUpgradeLevels() {
+            const u = state.upgrades;
+            return u.shoes + u.light + u.tech + u.sensor + u.manual + u.monitor + u.mental + u.trap + u.robo + u.crown;
+        }
+
+        function getCareerTitle() {
+            const total = getTotalUpgradeLevels();
+            if (total >= 80) return '👑伝説の救命神';
+            if (total >= 55) return '🏥看護部長';
+            if (total >= 35) return '💎看護師長';
+            if (total >= 20) return '⭐主任ナース';
+            if (total >= 8)  return '💉中堅ナース';
+            return '🔰新人ナース';
+        }
+
+        function getCaffeineThreshold() {
+            return 60 + state.upgrades.mental * 3.5;
+        }
+
+        function changeSelectLevel(delta) {
+            initAudio();
+            const next = state.selectedLevel + delta;
+            if (next >= 1 && next <= state.maxUnlockedLevel) {
+                state.selectedLevel = next;
+                playTone(660, 0.05, 'square', 0.06);
+                updateStartScreenUi();
+            } else {
+                playSfx('error');
+            }
+        }
+
+        function updateStartScreenUi() {
+            const cfg = getStageConfig(state.selectedLevel);
+            const occupiedCount = cfg.beds.length;
+            const rankMark = state.stageRanks[state.selectedLevel]
+                ? (state.stageRanks[state.selectedLevel] === 'S' ? ' 👑S定時' : ` ★${state.stageRanks[state.selectedLevel]}`)
+                : '';
+            document.getElementById('start-points').innerText = `${state.points}P`;
+            document.getElementById('start-select-level').innerText = `STAGE ${state.selectedLevel} (${occupiedCount}名)${rankMark}`;
+            const themeEl = document.getElementById('start-stage-theme');
+            if (themeEl) {
+                themeEl.innerText = `🏥 ${cfg.name}：${cfg.desc}`;
+            }
+            const badgeEl = document.getElementById('start-career-badge');
+            if (badgeEl) badgeEl.innerText = getCareerTitle();
+
+            const sRankCount = Object.values(state.stageRanks).filter(r => r === 'S').length;
+            const statsEl = document.getElementById('start-career-stats');
+            if (statsEl) {
+                statsEl.innerText = `🏆到達:STAGE ${state.maxUnlockedLevel} / 👑S定時:${sRankCount}回`;
+            }
+
+            const u = state.upgrades;
+            document.getElementById('start-perk-summary').innerHTML =
+                `<span>👟${u.shoes}</span>` +
+                `<span>🔦${u.light}</span>` +
+                `<span>💉${u.tech}</span>` +
+                `<span>🛏️${u.sensor}</span>` +
+                `<span>📋${u.manual}</span>` +
+                `<span>🏥${u.monitor}</span>` +
+                `<span>🛡️${u.mental}</span>` +
+                `<span>🪳${u.trap}</span>` +
+                `<span class="${u.robo ? 'text-cyan-300 font-bold' : 'text-slate-500'}">🤖${u.robo}</span>` +
+                `<span class="${u.crown ? 'text-amber-300 font-bold' : 'text-slate-500'}">👑${u.crown}</span>`;
+
+            updateRoboButtonUi();
+        }
+
+        function toggleRobo() {
+            initAudio();
+            state.roboEnabled = !state.roboEnabled;
+            playTone(state.roboEnabled ? 783.99 : 392.00, 0.06, 'square', 0.06);
+            updateRoboButtonUi();
+            if (state.upgrades.robo <= 0) {
+                showToast(`🤖 見守りロボ設定を【${state.roboEnabled ? 'ON' : 'OFF'}】にしました（ショップで開発すると出動します）`);
+            } else {
+                showToast(`🤖 見守りサポートロボを【${state.roboEnabled ? 'ON (出動)' : 'OFF (待機)'}】に切り替えました！`);
+            }
+            if (!document.getElementById('overlay-shop').classList.contains('hidden')) {
+                renderShopItems();
+            }
+        }
+
+        function updateRoboButtonUi() {
+            const hudBtn = document.getElementById('btn-robo');
+            const startBtn = document.getElementById('start-btn-robo');
+            const hasRobo = state.upgrades.robo > 0;
+
+            if (hudBtn) {
+                if (!hasRobo) {
+                    hudBtn.innerText = state.roboEnabled ? '🤖未所持' : '🤖OFF';
+                    hudBtn.className = 'bg-slate-900 text-slate-400 border border-slate-600 px-1 py-0.5 rounded-sm text-[9px] whitespace-nowrap';
+                } else if (state.roboEnabled) {
+                    hudBtn.innerText = '🤖ロボ:ON';
+                    hudBtn.className = 'bg-cyan-700 hover:bg-cyan-600 text-white border border-cyan-200 px-1 py-0.5 rounded-sm text-[9px] font-bold whitespace-nowrap';
+                } else {
+                    hudBtn.innerText = '🤖ロボ:OFF';
+                    hudBtn.className = 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-500 px-1 py-0.5 rounded-sm text-[9px] whitespace-nowrap';
+                }
+            }
+
+            if (startBtn) {
+                if (state.roboEnabled) {
+                    startBtn.innerText = hasRobo ? `🤖稼働:ON(Lv.${state.upgrades.robo})` : '🤖ロボ:ON(未)';
+                    startBtn.className = 'bg-cyan-700 hover:bg-cyan-600 text-white border border-cyan-200 px-1.5 py-0.5 font-bold text-[9px] shrink-0';
+                } else {
+                    startBtn.innerText = hasRobo ? `🤖待機:OFF(Lv.${state.upgrades.robo})` : '🤖ロボ:OFF(未)';
+                    startBtn.className = 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-500 px-1.5 py-0.5 font-bold text-[9px] shrink-0';
+                }
+            }
+        }
+
+        function returnToStartScreen() {
+            initAudio();
+            playTone(523.25, 0.08, 'square', 0.06);
+            state.mode = 'start';
+            state.selectedLevel = state.level;
+            document.getElementById('overlay-clear').classList.add('hidden');
+            document.getElementById('overlay-gameover').classList.add('hidden');
+            document.getElementById('overlay-shop').classList.add('hidden');
+            document.getElementById('overlay-start').classList.remove('hidden');
+            updateStartScreenUi();
+            updateHud();
+        }
+
+        function openShop(fromScreen) {
+            initAudio();
+            playTone(783.99, 0.07, 'square', 0.06);
+            state.shopReturnOverlay = fromScreen;
+            document.getElementById('overlay-start').classList.add('hidden');
+            document.getElementById('overlay-clear').classList.add('hidden');
+            document.getElementById('overlay-gameover').classList.add('hidden');
+            document.getElementById('overlay-shop').classList.remove('hidden');
+            document.getElementById('shop-msg').innerText = '💡 貯めたポイントで夜勤が有利になる特典と交換できます！';
+            renderShopItems();
+        }
+
+        function closeShop() {
+            initAudio();
+            playTone(523.25, 0.06, 'square', 0.06);
+            document.getElementById('overlay-shop').classList.add('hidden');
+            if (state.shopReturnOverlay === 'clear') {
+                document.getElementById('clear-points').innerText = `${state.points}P`;
+                document.getElementById('overlay-clear').classList.remove('hidden');
+            } else if (state.shopReturnOverlay === 'gameover') {
+                document.getElementById('gameover-score').innerText = `所持ポイント: ${state.points}P / 到達: LEVEL ${state.level}`;
+                document.getElementById('overlay-gameover').classList.remove('hidden');
+            } else {
+                updateStartScreenUi();
+                document.getElementById('overlay-start').classList.remove('hidden');
+            }
+            updateHud();
+        }
+
+        function renderShopItems() {
+            document.getElementById('shop-points').innerText = `💰 ${state.points}P`;
+            const container = document.getElementById('shop-items-container');
+            container.innerHTML = '';
+
+            SHOP_ITEMS.forEach(item => {
+                const curLv = state.upgrades[item.key];
+                const isMax = curLv >= item.maxLv;
+                const cost = isMax ? 0 : item.costs[curLv];
+                const canAfford = !isMax && state.points >= cost;
+
+                const roboToggleHtml = (item.key === 'robo' && curLv > 0)
+                    ? `<button onclick="toggleRobo()" class="ml-1 px-1.5 py-0.5 text-[9px] font-bold border ${state.roboEnabled ? 'bg-cyan-700 text-white border-cyan-200' : 'bg-slate-800 text-slate-400 border-slate-600'}">${state.roboEnabled ? '稼働:ON' : '待機:OFF'}</button>`
+                    : '';
+
+                const row = document.createElement('div');
+                row.className = 'bg-slate-900 border border-slate-700 p-2 flex items-center justify-between gap-2';
+                row.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1 flex-wrap">
+                            <span class="text-sm">${item.icon}</span>
+                            <span class="text-xs font-bold text-amber-200 truncate">${item.name}</span>
+                            <span class="text-[10px] px-1 bg-slate-800 text-cyan-300 border border-slate-600">Lv.${curLv}/${item.maxLv}</span>
+                            ${roboToggleHtml}
+                        </div>
+                        <div class="text-[10px] text-slate-300 mt-0.5 leading-tight">${item.desc}</div>
+                    </div>
+                    <button onclick="buyUpgrade('${item.key}')"
+                        ${isMax ? 'disabled' : ''}
+                        class="shrink-0 px-2 py-1.5 text-[10px] font-bold border ${
+                            isMax
+                                ? 'bg-slate-800 text-emerald-400 border-emerald-500/50 cursor-default'
+                                : canAfford
+                                    ? 'bg-amber-600 hover:bg-amber-500 text-white border-white shadow-[0_2px_0_#78350f] active:translate-y-0.5'
+                                    : 'bg-slate-800 text-slate-400 border-slate-600'
+                        }">
+                        ${isMax ? 'MAX済' : `交換 ${cost}P`}
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function buyUpgrade(key) {
+            initAudio();
+            const item = SHOP_ITEMS.find(i => i.key === key);
+            if (!item) return;
+            const curLv = state.upgrades[key];
+            if (curLv >= item.maxLv) return;
+
+            const cost = item.costs[curLv];
+            if (state.points < cost) {
+                playSfx('error');
+                document.getElementById('shop-msg').innerText = `⚠️ ポイントが足りません！（必要: ${cost}P / 所持: ${state.points}P）`;
+                return;
+            }
+
+            state.points -= cost;
+            state.upgrades[key]++;
+            playSfx('buy');
+            document.getElementById('shop-msg').innerText = `✨ 「${item.name} (Lv.${state.upgrades[key]})」を交換！ [${getCareerTitle()}]`;
+            renderShopItems();
+            updateHud();
+        }
+
+        function toggleAiMode() {
+            state.aiMode = !state.aiMode;
+            updateAiButtonUi();
+            if (state.aiMode && state.mode === 'playing') {
+                showToast("🤖 AIオートプレイ観戦モード ON！");
+            } else if (!state.aiMode && state.mode === 'playing') {
+                nurse.targetX = null;
+                nurse.targetY = null;
+                nurse.targetType = null;
+                showToast("👩‍⚕️ 手動プレイモードに切り替えました！");
+            }
+        }
+
+        function updateAiButtonUi() {
+            const btn = document.getElementById('btn-ai');
+            const badge = document.getElementById('ai-badge');
+            if (state.aiMode) {
+                btn.innerText = '🤖AI:ON';
+                btn.className = 'bg-amber-500 text-black border border-white px-1 py-0.5 rounded-sm text-[9px] font-bold whitespace-nowrap';
+                if (state.mode === 'playing') badge.classList.remove('hidden');
+            } else {
+                btn.innerText = '🤖AI:OFF';
+                btn.className = 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-400 px-1 py-0.5 rounded-sm text-[9px] font-bold whitespace-nowrap';
+                badge.classList.add('hidden');
+            }
+        }
+
+        function startSelectedStage(withAi = false) {
+            initAudio();
+            state.aiMode = withAi;
+            state.level = state.selectedLevel;
+            updateAiButtonUi();
+            startLevel(state.level);
+        }
+
+        function retryCurrentLevel() {
+            initAudio();
+            startLevel(state.level);
+        }
+
+        function nextLevel() {
+            initAudio();
+            state.level++;
+            if (state.level > state.maxUnlockedLevel) {
+                state.maxUnlockedLevel = state.level;
+            }
+            state.selectedLevel = state.level;
+            startLevel(state.level);
+        }
+
+        function startLevel(lvl) {
+            document.getElementById('overlay-start').classList.add('hidden');
+            document.getElementById('overlay-clear').classList.add('hidden');
+            document.getElementById('overlay-gameover').classList.add('hidden');
+            document.getElementById('overlay-shop').classList.add('hidden');
+
+            const cfg = getStageConfig(lvl);
+
+            state.mode = 'playing';
+            state.hp = 100;
+            state.battery = 100;
+            state.caffeine = 0;
+            state.timeSec = 0;
+            state.maxTimeSec = 52 + Math.min(18, (lvl - 1) * 3);
+            state.treatedCount = 0;
+            state.roachKillCount = 0;
+            state.ghostKillCount = 0;
+            state.incidentCount = 0;
+            state.chartCount = 0;
+            state.chartProgress = 0;
+            state.combo = 0;
+            state.maxCombo = 0;
+            state.comboTimer = 0;
+            state.doctorCallsLeft = state.upgrades.manual >= 5 ? 2 : 1;
+            state.doctorActiveTimer = 0;
+            state.slipperSwingTimer = 0;
+            state.blackoutTimer = 0;
+            state.roaches = [];
+            state.ghosts = [];
+            state.floatingTexts = [];
+
+            nurse.x = 128;
+            nurse.y = 144;
+            nurse.facingAngle = -Math.PI / 2;
+            nurse.targetX = null;
+            nurse.targetY = null;
+            nurse.targetType = null;
+            nurse.interactBedId = null;
+            nurse.spookTimer = 0;
+            nurse.isFlashing = false;
+
+            supportRobo.x = 128;
+            supportRobo.y = 116;
+            supportRobo.cooldown = 0;
+            supportRobo.assistVisualTimer = 0;
+
+            const occupiedIds = cfg.beds;
+            // 👑 VIP患者ベッドの選出（処置ポイント2.5倍・コール速度1.35倍のやり込み要素）
+            const shuffledOccupied = [...occupiedIds].sort(() => Math.random() - 0.5);
+            const vipIds = shuffledOccupied.slice(0, cfg.vipCount || 0);
+
+            state.beds = BED_COORDS.map((bc, idx) => {
+                const isOccupied = occupiedIds.includes(bc.id);
+                const isVip = vipIds.includes(bc.id);
+                return {
+                    ...bc,
+                    occupied: isOccupied,
+                    isVip: isVip,
+                    drip: 58 + ((idx * 13) % 36),
+                    panic: 12 + ((idx * 11) % 28),
+                    rateFactor: (0.88 + ((idx * 7) % 5) * 0.08) * (isVip ? 1.32 : 1.0),
+                    restTimer: (idx % 3) * 1.2, // 開幕の保護タイマー
+                    needType: null,
+                    callWaitTimer: 0,
+                    fallTimer: 0,
+                    isFallen: false,
+                    treatProgress: 0,
+                    shirtColor: isVip ? '#fde047' : ['#4ade80', '#38bdf8', '#f472b6', '#a78bfa'][bc.id % 4]
+                };
+            });
+
+            updateAiButtonUi();
+            updateRoboButtonUi();
+            updateComboUi();
+            updateDoctorButtonUi();
+            const songName = cfg.melody === 'elise' ? '♪エリーゼのために' : '♪メヌエット';
+            showToast(`🌙 STAGE ${lvl}「${cfg.name}」(${songName}) 開始！`);
+            playSfx('heal');
+            updateHud();
+        }
+
+        function updateDoctorButtonUi() {
+            const btn = document.getElementById('btn-doctor');
+            if (!btn) return;
+            btn.innerText = `📞Dr.${state.doctorCallsLeft}`;
+            if (state.doctorCallsLeft > 0) {
+                btn.className = 'w-10 h-5 bg-rose-900 hover:bg-rose-800 border-2 border-amber-300 rounded-full shadow active:translate-y-0.5 text-[9px] text-amber-200 font-bold whitespace-nowrap';
+            } else {
+                btn.className = 'w-10 h-5 bg-slate-800 border border-slate-600 rounded-full text-[9px] text-slate-500 font-bold whitespace-nowrap';
+            }
+        }
+
+        function callDoctorSupport() {
+            if (state.mode !== 'playing') return;
+            initAudio();
+            if (state.doctorCallsLeft <= 0) {
+                playSfx('error');
+                showToast("⚠️ 当直医コールは使用済みです（📋医療安全Lv5で2回に増加）");
+                return;
+            }
+            state.doctorCallsLeft--;
+            state.doctorActiveTimer = 3.5;
+            updateDoctorButtonUi();
+            playSfx('clear');
+
+            // 全ベッドの危機を一斉緩和！
+            state.beds.forEach(b => {
+                if (!b.occupied) return;
+                b.drip = Math.max(b.drip, 85);
+                b.panic = Math.min(b.panic, 15);
+                b.fallTimer = 0;
+                b.restTimer = 5.0;
+                if (b.needType === 'codeblue' || b.needType === 'diaper' || b.isFallen) {
+                    b.needType = null;
+                    b.isFallen = false;
+                    b.treatProgress = 0;
+                }
+            });
+            state.hp = Math.min(100, state.hp + 20);
+            addFloatingText(128, 130, "👨‍⚕️当直医が緊急回診!! 全室安定!", "#fde047");
+            showToast("👨‍⚕️ 当直医が駆けつけ、全ベッドの急変・転落危機を処置しました！");
+        }
+
+        function showToast(msg) {
+            const el = document.getElementById('toast-banner');
+            if (!el) return;
+            el.innerText = `📢 ${msg}`;
+            el.className = 'text-[10px] text-amber-300 font-bold truncate flex-1';
+            clearTimeout(el._timer);
+            el._timer = setTimeout(() => {
+                el.innerText = '📢 病棟巡回中：足元で[💊A長押し]か[患者タップ]で処置！';
+                el.className = 'text-[10px] text-slate-300 font-bold truncate flex-1';
+            }, 2600);
+        }
+
+        function addFloatingText(x, y, text, color = '#ffffff') {
+            state.floatingTexts.push({ x, y, text, color, life: 46 });
+        }
+
+        /* ==============================================================
+         * 5. 入力処理（アナログスティック ＆ 直接タッチ ＆ キーボード）
+         * ============================================================== */
+        function initJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            if (!zone || !knob) return;
+
+            const maxRadius = 28;
+
+            function handleStickMove(clientX, clientY) {
+                const rect = zone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                let dx = clientX - centerX;
+                let dy = clientY - centerY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                }
+
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+                const normDist = Math.min(1, dist / maxRadius);
+                if (normDist > 0.12) {
+                    joystick.vx = dx / maxRadius;
+                    joystick.vy = dy / maxRadius;
+                    joystick.magnitude = normDist;
+                } else {
+                    joystick.vx = 0;
+                    joystick.vy = 0;
+                    joystick.magnitude = 0;
+                }
+            }
+
+            function resetStick() {
+                joystick.active = false;
+                joystick.pointerId = null;
+                joystick.vx = 0;
+                joystick.vy = 0;
+                joystick.magnitude = 0;
+                knob.classList.remove('active');
+                knob.style.transform = 'translate(-50%, -50%)';
+            }
+
+            zone.addEventListener('pointerdown', (e) => {
+                initAudio();
+                e.preventDefault();
+                joystick.active = true;
+                joystick.pointerId = e.pointerId;
+                knob.classList.add('active');
+                if (zone.setPointerCapture) {
+                    try { zone.setPointerCapture(e.pointerId); } catch (err) {}
+                }
+                if (state.aiMode) {
+                    state.aiMode = false;
+                    updateAiButtonUi();
+                }
+                nurse.targetX = null;
+                nurse.targetY = null;
+                nurse.targetType = null;
+                nurse.interactBedId = null;
+                handleStickMove(e.clientX, e.clientY);
+            });
+
+            zone.addEventListener('pointermove', (e) => {
+                if (!joystick.active || e.pointerId !== joystick.pointerId) return;
+                e.preventDefault();
+                handleStickMove(e.clientX, e.clientY);
+            });
+
+            zone.addEventListener('pointerup', (e) => {
+                if (e.pointerId !== joystick.pointerId) return;
+                resetStick();
+            });
+
+            zone.addEventListener('pointercancel', (e) => {
+                if (e.pointerId !== joystick.pointerId) return;
+                resetStick();
+            });
+        }
+
+        function setPad(dir, isDown) {
+            initAudio();
+            pad[dir] = isDown;
+            if (isDown) {
+                if (state.aiMode) {
+                    state.aiMode = false;
+                    updateAiButtonUi();
+                }
+                nurse.targetX = null;
+                nurse.targetY = null;
+                nurse.targetType = null;
+                nurse.interactBedId = null;
+            }
+        }
+
+        function pressActionA() {
+            initAudio();
+            pad.a = true;
+            document.getElementById('btn-a').classList.add('pressed');
+            triggerImmediateInteract();
+        }
+        function releaseActionA() {
+            pad.a = false;
+            document.getElementById('btn-a').classList.remove('pressed');
+        }
+
+        function pressActionB() {
+            initAudio();
+            pad.b = true;
+            document.getElementById('btn-b').classList.add('pressed');
+            if (state.mode === 'playing' && state.battery > 5) {
+                playSfx('light');
+                let nearestGhost = null;
+                let minDist = 999;
+                state.ghosts.forEach(g => {
+                    const d = Math.hypot(g.x - nurse.x, g.y - nurse.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearestGhost = g;
+                    }
+                });
+                if (nearestGhost && minDist < 135) {
+                    nurse.facingAngle = Math.atan2(nearestGhost.y - nurse.y, nearestGhost.x - nurse.x);
+                }
+            }
+        }
+        function releaseActionB() {
+            pad.b = false;
+            document.getElementById('btn-b').classList.remove('pressed');
+        }
+
+        function quickGoStation(type) {
+            if (state.mode !== 'playing') return;
+            initAudio();
+            if (state.aiMode) {
+                state.aiMode = false;
+                updateAiButtonUi();
+            }
+            if (type === 'energy') {
+                nurse.targetX = STATIONS.energy.x;
+                nurse.targetY = STATIONS.energy.y;
+                nurse.targetType = 'energy';
+                addFloatingText(STATIONS.energy.x, STATIONS.energy.y - 10, "▼エナドリへ", "#4ade80");
+            } else if (type === 'water') {
+                nurse.targetX = STATIONS.water.x;
+                nurse.targetY = STATIONS.water.y;
+                nurse.targetType = 'water';
+                addFloatingText(STATIONS.water.x, STATIONS.water.y - 10, "▼お冷へ", "#38bdf8");
+            }
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (state.mode !== 'playing') return;
+            initAudio();
+            if (state.aiMode) {
+                state.aiMode = false;
+                updateAiButtonUi();
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = W / rect.width;
+            const scaleY = H / rect.height;
+            const tx = (e.clientX - rect.left) * scaleX;
+            const ty = (e.clientY - rect.top) * scaleY;
+
+            for (let g of state.ghosts) {
+                if (Math.hypot(tx - g.x, ty - g.y) < 25) {
+                    nurse.targetX = g.x;
+                    nurse.targetY = g.y;
+                    nurse.targetType = 'ghost';
+                    nurse.targetId = g.id;
+                    nurse.facingAngle = Math.atan2(g.y - nurse.y, g.x - nurse.x);
+                    playSfx('light');
+                    addFloatingText(g.x, g.y - 10, "🔦ロックオン!", "#facc15");
+                    return;
+                }
+            }
+
+            for (let r of state.roaches) {
+                if (Math.hypot(tx - r.x, ty - r.y) < 24) {
+                    if (Math.hypot(nurse.x - r.x, nurse.y - r.y) < 28) {
+                        triggerImmediateInteract();
+                    } else {
+                        nurse.targetX = r.x;
+                        nurse.targetY = r.y;
+                        nurse.targetType = 'roach';
+                        nurse.targetId = r.id;
+                        nurse.interactBedId = null;
+                        addFloatingText(r.x, r.y - 8, "🩴タップ退治へ!", "#facc15");
+                    }
+                    return;
+                }
+            }
+
+            if (Math.hypot(tx - STATIONS.energy.x, ty - STATIONS.energy.y) < 22) {
+                quickGoStation('energy');
+                return;
+            }
+
+            if (Math.hypot(tx - STATIONS.water.x, ty - STATIONS.water.y) < 22) {
+                quickGoStation('water');
+                return;
+            }
+
+            if (Math.abs(tx - STATIONS.desk.x) < 36 && Math.abs(ty - STATIONS.desk.y) < 20) {
+                nurse.targetX = STATIONS.desk.x;
+                nurse.targetY = STATIONS.desk.y + 18;
+                nurse.targetType = 'desk';
+                nurse.interactBedId = null;
+                addFloatingText(STATIONS.desk.x, STATIONS.desk.y - 10, "💻カルテ記録へ", "#38bdf8");
+                return;
+            }
+
+            for (let b of state.beds) {
+                if (Math.abs(tx - b.x) < 28 && Math.abs(ty - b.y) < 45) {
+                    nurse.targetX = b.standX;
+                    nurse.targetY = b.standY;
+                    nurse.targetType = 'bed';
+                    nurse.targetId = b.id;
+                    nurse.interactBedId = b.id; // タップしたベッドを処置対象としてロックオン
+                    addFloatingText(b.x, b.y - 10, "💊処置ロック!", "#38bdf8");
+                    return;
+                }
+            }
+
+            nurse.targetX = Math.max(16, Math.min(W - 16, tx));
+            nurse.targetY = Math.max(76, Math.min(H - 76, ty));
+            nurse.targetType = 'move';
+            nurse.interactBedId = null;
+            nurse.facingAngle = Math.atan2(ty - nurse.y, tx - nurse.x);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') setPad('up', true);
+            if (e.key === 'ArrowDown' || e.key === 's') setPad('down', true);
+            if (e.key === 'ArrowLeft' || e.key === 'a') setPad('left', true);
+            if (e.key === 'ArrowRight' || e.key === 'd') setPad('right', true);
+            if (e.key === ' ' || e.key === 'Enter' || e.key === 'z') pressActionA();
+            if (e.key === 'Shift' || e.key === 'x') pressActionB();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') setPad('up', false);
+            if (e.key === 'ArrowDown' || e.key === 's') setPad('down', false);
+            if (e.key === 'ArrowLeft' || e.key === 'a') setPad('left', false);
+            if (e.key === 'ArrowRight' || e.key === 'd') setPad('right', false);
+            if (e.key === ' ' || e.key === 'Enter' || e.key === 'z') releaseActionA();
+            if (e.key === 'Shift' || e.key === 'x') releaseActionB();
+        });
+
+        /* ==============================================================
+         * 6. アクション＆ギミック処理（処置・ゴキブリ・お化け・補給）
+         * ============================================================== */
+        function triggerImmediateInteract() {
+            if (state.mode !== 'playing') return;
+
+            state.slipperSwingTimer = 0.22; // スリッパ・スイング視覚エフェクト
+
+            let hitRoach = false;
+            for (let i = state.roaches.length - 1; i >= 0; i--) {
+                const r = state.roaches[i];
+                if (Math.hypot(nurse.x - r.x, nurse.y - r.y) < 34) {
+                    state.roaches.splice(i, 1);
+                    state.roachKillCount++;
+                    addCombo("害虫駆除");
+                    const earned = addPoints(10);
+                    playSfx('smack');
+                    addFloatingText(r.x, r.y - 6, `🩴バシッ!!+${earned}P`, "#facc15");
+                    hitRoach = true;
+                }
+            }
+            if (hitRoach) return;
+
+            if (Math.hypot(nurse.x - STATIONS.energy.x, nurse.y - STATIONS.energy.y) < 26) {
+                drinkEnergy();
+                return;
+            }
+
+            if (Math.hypot(nurse.x - STATIONS.water.x, nurse.y - STATIONS.water.y) < 26) {
+                drinkWater();
+                return;
+            }
+        }
+
+        function drinkEnergy() {
+            const cafGain = Math.max(14, 36 - state.upgrades.mental * 4.5);
+            state.caffeine = Math.min(100, state.caffeine + cafGain);
+            state.hp = Math.min(100, state.hp + 10 + state.upgrades.mental * 2.5);
+            state.battery = Math.min(100, state.battery + 30);
+            playSfx('energy');
+            addFloatingText(nurse.x, nurse.y - 12, "🥤翼を授かる! 速度UP!", "#4ade80");
+            if (state.caffeine >= getCaffeineThreshold()) {
+                showToast("⚠️ カフェイン過剰！👻お化けが出現しやすくなります！");
+                spawnGhost();
+            }
+        }
+
+        function drinkWater() {
+            if (state.caffeine > 0 || state.ghosts.length > 0) {
+                state.caffeine = Math.max(0, state.caffeine - 65);
+                state.beds.forEach(b => {
+                    if (b.needType === 'fakecall') {
+                        b.needType = null;
+                        b.treatProgress = 0;
+                    }
+                });
+                playSfx('water');
+                addFloatingText(nurse.x, nurse.y - 12, "💧頭がスッキリ!", "#38bdf8");
+                showToast("✨ 冷たいお冷でカフェイン中毒が鎮まった！");
+            } else {
+                state.hp = Math.min(100, state.hp + 6);
+                playSfx('water');
+                addFloatingText(nurse.x, nurse.y - 12, "💧水分補給+HP", "#38bdf8");
+            }
+        }
+
+        function spawnCockroach() {
+            const maxRoaches = 1 + Math.floor(state.level / 2);
+            if (state.roaches.length >= maxRoaches) return;
+            const corners = [
+                { x: 24, y: 92 }, { x: 232, y: 92 },
+                { x: 24, y: 192 }, { x: 232, y: 192 }
+            ];
+            const pick = corners[Math.floor(Math.random() * corners.length)];
+            state.roaches.push({
+                id: Math.random(),
+                x: pick.x,
+                y: pick.y,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 1.5,
+                changeTimer: 20,
+                biteCooldown: 0
+            });
+            showToast("🪳 カサカサッ…病棟にゴキブリが出現！足元で[A]かタップで叩け！");
+        }
+
+        function spawnGhost() {
+            const maxGhosts = state.caffeine >= getCaffeineThreshold() ? 2 : 1;
+            if (state.ghosts.length >= maxGhosts) return;
+            const gx = Math.random() < 0.5 ? 22 : 234;
+            const gy = 80 + Math.random() * 120;
+            state.ghosts.push({
+                id: Math.random(),
+                x: gx,
+                y: gy,
+                hp: 100,
+                isLit: false,
+                angle: Math.random() * Math.PI * 2,
+                fakeCallCooldown: 110
+            });
+            playSfx('ghost');
+            showToast("👻 お化け出現！🔦ライトの光を当てて追い払え！");
+        }
+
+        function isPointInFlashlight(px, py) {
+            const dx = px - nurse.x;
+            const dy = py - nurse.y;
+            const dist = Math.hypot(dx, dy);
+
+            const lightLv = state.upgrades.light;
+            const baseDist = nurse.isFlashing ? 122 : 76;
+            const maxDist = baseDist + lightLv * 12;
+            const baseAngle = nurse.isFlashing ? 0.82 : 0.54;
+            const halfAngle = baseAngle + lightLv * 0.055;
+
+            if (dist > maxDist) return false;
+            if (dist < 16) return true;
+
+            let angleDiff = Math.atan2(dy, dx) - nurse.facingAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            return Math.abs(angleDiff) <= halfAngle;
+        }
+
+        /* ==============================================================
+         * 7. 🤖 AIオートプレイ意思決定エンジン
+         * ============================================================== */
+        function updateAiDecision() {
+            if (!state.aiMode || state.mode !== 'playing') return;
+
+            if (state.caffeine >= 78 && state.ghosts.length > 0) {
+                nurse.targetX = STATIONS.water.x;
+                nurse.targetY = STATIONS.water.y;
+                nurse.targetType = 'water';
+                pad.b = false;
+                return;
+            }
+
+            if (state.ghosts.length > 0) {
+                let targetGhost = state.ghosts[0];
+                const distG = Math.hypot(targetGhost.x - nurse.x, targetGhost.y - nurse.y);
+                const hasCodeBlue = state.beds.some(b => b.needType === 'codeblue');
+                if (!hasCodeBlue || distG < 65) {
+                    nurse.targetX = targetGhost.x;
+                    nurse.targetY = targetGhost.y;
+                    nurse.targetType = 'ghost';
+                    nurse.targetId = targetGhost.id;
+                    nurse.facingAngle = Math.atan2(targetGhost.y - nurse.y, targetGhost.x - nurse.x);
+                    pad.b = (distG < 115 && state.battery > 15);
+                    return;
+                }
+            }
+            pad.b = false;
+
+            if (state.roaches.length > 0) {
+                const r = state.roaches[0];
+                nurse.targetX = r.x;
+                nurse.targetY = r.y;
+                nurse.targetType = 'roach';
+                nurse.targetId = r.id;
+                return;
+            }
+
+            let bestBed = null;
+            let bestScore = -1;
+
+            state.beds.forEach(b => {
+                if (!b.occupied || b.needType === 'fakecall') return;
+                let urgency = 0;
+                if (b.needType === 'codeblue') urgency = 1300;
+                else if (b.isFallen) urgency = 1100;
+                else if (b.needType === 'diaper') urgency = 850 + b.panic + b.fallTimer * 25;
+                else if (b.needType === 'toilet' || b.needType === 'omutsu') urgency = 720 + b.panic + b.callWaitTimer * 20;
+                else if (b.needType === 'meds' || b.needType === 'tea') urgency = 640 + b.panic + b.callWaitTimer * 18;
+                else if (b.needType === 'drip') urgency = 580 + (100 - b.drip) + b.callWaitTimer * 15;
+                else if (b.drip < 42 || b.panic > 55) urgency = 200 + (100 - b.drip) + b.panic;
+
+                if (urgency > 0) {
+                    if (b.isVip) urgency += 120;
+                    const dist = Math.hypot(b.standX - nurse.x, b.standY - nurse.y);
+                    const score = urgency - dist * 0.6;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestBed = b;
+                    }
+                }
+            });
+
+            if (bestBed) {
+                nurse.targetX = bestBed.standX;
+                nurse.targetY = bestBed.standY;
+                nurse.targetType = 'bed';
+                nurse.targetId = bestBed.id;
+                nurse.interactBedId = bestBed.id;
+                return;
+            }
+
+            // ピンチのベッドが複数あればAIもドクターコールを活用
+            const dangerCount = state.beds.filter(b => b.occupied && (b.needType === 'codeblue' || b.isFallen || b.fallTimer > 5)).length;
+            if (dangerCount >= 2 && state.doctorCallsLeft > 0) {
+                callDoctorSupport();
+                return;
+            }
+
+            if (state.caffeine < 15 && state.hp < 90) {
+                nurse.targetX = STATIONS.energy.x;
+                nurse.targetY = STATIONS.energy.y;
+                nurse.targetType = 'energy';
+                return;
+            }
+
+            // 手が空いているときはナースステーションでカルテ記録を行う
+            nurse.targetX = STATIONS.desk.x;
+            nurse.targetY = STATIONS.desk.y + 18;
+            nurse.targetType = 'desk';
+        }
+
+        /* ==============================================================
+         * 8. メインアップデート処理 (60FPS)
+         * ============================================================== */
+        let lastTime = performance.now();
+
+        function update(dt) {
+            if (state.mode !== 'playing') return;
+
+            // 60FPS基準のフレームスケール（120Hzや省電力30Hz端末でもゲーム速度を均一に保つ）
+            const fScale = Math.min(2.5, dt * 60);
+
+            state.frameCount++;
+
+            if (state.aiMode && state.frameCount % 8 === 0) {
+                updateAiDecision();
+            }
+
+            state.timeSec += dt;
+            if (state.caffeine > 0) {
+                state.caffeine = Math.max(0, state.caffeine - dt * 1.6);
+            }
+            if (state.slipperSwingTimer > 0) {
+                state.slipperSwingTimer = Math.max(0, state.slipperSwingTimer - dt);
+            }
+            if (state.doctorActiveTimer > 0) {
+                state.doctorActiveTimer = Math.max(0, state.doctorActiveTimer - dt);
+            }
+            if (state.combo > 0) {
+                state.comboTimer -= dt;
+                if (state.comboTimer <= 0) {
+                    resetCombo();
+                }
+            }
+
+            if (state.timeSec >= state.maxTimeSec) {
+                triggerLevelClear();
+                return;
+            }
+
+            const stageCfg = getStageConfig(state.level);
+            if (stageCfg.blackout) {
+                if (state.blackoutTimer > 0) {
+                    state.blackoutTimer -= dt;
+                } else if (Math.random() < 0.0022 && state.timeSec > 6) {
+                    state.blackoutTimer = 5.5 + Math.min(4.0, state.level * 0.4);
+                    playSfx('spook');
+                    showToast("⚡ 落雷で病棟が停電！懐中電灯で周囲を照らせ！");
+                }
+            }
+
+            const batDrain = Math.max(8, 24 - state.upgrades.light * 1.4);
+            const batRegen = 15 + state.upgrades.light * 1.8;
+            if ((pad.b || nurse.targetType === 'ghost') && state.battery > 2) {
+                nurse.isFlashing = true;
+                state.battery = Math.max(0, state.battery - dt * batDrain);
+                if (state.battery <= 2) {
+                    nurse.isFlashing = false;
+                }
+            } else {
+                nurse.isFlashing = false;
+                state.battery = Math.min(100, state.battery + dt * batRegen);
+            }
+
+            bgmTick += dt;
+            if (bgmTick > 0.48) {
+                bgmTick = 0;
+                if (state.beds.some(b => b.needType === 'codeblue')) {
+                    playSfx('codeblue');
+                }
+            }
+
+            if (nurse.spookTimer > 0) {
+                nurse.spookTimer -= dt;
+            }
+
+            let speedMult = 1.0 + state.upgrades.shoes * 0.05;
+            if (state.caffeine > 20) speedMult += 0.30;
+            if (state.combo >= 5) speedMult += 0.12; // 5コンボ以上のゾーン加速！
+            if (nurse.spookTimer > 0) speedMult *= 0.55;
+
+            const moveSpeed = nurse.speed * speedMult;
+            let dx = 0, dy = 0;
+            let speedFactor = 1.0;
+
+            if (joystick.active && joystick.magnitude > 0) {
+                dx = joystick.vx;
+                dy = joystick.vy;
+                speedFactor = Math.max(0.45, joystick.magnitude);
+            } else {
+                if (pad.up) dy -= 1;
+                if (pad.down) dy += 1;
+                if (pad.left) dx -= 1;
+                if (pad.right) dx += 1;
+            }
+
+            if (dx === 0 && dy === 0 && nurse.targetX !== null && nurse.targetY !== null) {
+                if (nurse.targetType === 'roach') {
+                    const tr = state.roaches.find(r => r.id === nurse.targetId);
+                    if (tr) {
+                        nurse.targetX = tr.x;
+                        nurse.targetY = tr.y;
+                    } else {
+                        nurse.targetX = null;
+                        nurse.targetY = null;
+                    }
+                }
+                if (nurse.targetType === 'ghost') {
+                    const tg = state.ghosts.find(g => g.id === nurse.targetId);
+                    if (tg) {
+                        nurse.facingAngle = Math.atan2(tg.y - nurse.y, tg.x - nurse.x);
+                        const distToGhost = Math.hypot(tg.x - nurse.x, tg.y - nurse.y);
+                        if (distToGhost > 48) {
+                            nurse.targetX = tg.x;
+                            nurse.targetY = tg.y;
+                        } else {
+                            dx = 0;
+                            dy = 0;
+                        }
+                    } else {
+                        nurse.targetX = null;
+                        nurse.targetY = null;
+                        nurse.targetType = null;
+                    }
+                }
+
+                if (nurse.targetX !== null && !(nurse.targetType === 'ghost' && Math.hypot(nurse.targetX - nurse.x, nurse.targetY - nurse.y) <= 48)) {
+                    const dist = Math.hypot(nurse.targetX - nurse.x, nurse.targetY - nurse.y);
+                    if (dist > 3) {
+                        dx = (nurse.targetX - nurse.x) / dist;
+                        dy = (nurse.targetY - nurse.y) / dist;
+                    } else {
+                        nurse.x = nurse.targetX;
+                        nurse.y = nurse.targetY;
+                        if (nurse.targetType === 'energy') drinkEnergy();
+                        if (nurse.targetType === 'water') drinkWater();
+                        if (nurse.targetType === 'roach') triggerImmediateInteract();
+                        nurse.targetX = null;
+                        nurse.targetY = null;
+                        nurse.targetType = null;
+                    }
+                }
+            }
+
+            if (dx !== 0 || dy !== 0) {
+                const len = Math.hypot(dx, dy);
+                nurse.x += (dx / len) * moveSpeed * speedFactor * fScale;
+                nurse.y += (dy / len) * moveSpeed * speedFactor * fScale;
+                nurse.facingAngle = Math.atan2(dy, dx);
+
+                nurse.animTimer += dt;
+                if (nurse.animTimer > 0.18) {
+                    nurse.animTimer = 0;
+                    nurse.animFrame = nurse.animFrame === 0 ? 1 : 0;
+                    playSfx('step');
+                }
+            }
+
+            nurse.x = Math.max(18, Math.min(W - 18, nurse.x));
+            nurse.y = Math.max(76, Math.min(H - 76, nurse.y));
+
+            const trapFactor = Math.max(0.25, 1.0 - state.upgrades.trap * 0.075);
+            const roachChance = (0.0012 + state.level * 0.0004) * stageCfg.roachMult * trapFactor * fScale;
+            if (Math.random() < roachChance && state.timeSec > 5) {
+                spawnCockroach();
+            }
+
+            for (let i = state.roaches.length - 1; i >= 0; i--) {
+                const r = state.roaches[i];
+                r.changeTimer -= fScale;
+                if (r.biteCooldown > 0) r.biteCooldown -= dt;
+                const roachSpeedScale = Math.max(0.45, 1.0 - state.upgrades.trap * 0.06);
+                if (r.changeTimer <= 0) {
+                    r.vx = (Math.random() - 0.5) * (1.5 + state.level * 0.14) * roachSpeedScale;
+                    r.vy = (Math.random() - 0.5) * (1.5 + state.level * 0.14) * roachSpeedScale;
+                    r.changeTimer = 15 + Math.floor(Math.random() * 25);
+                }
+                r.x = Math.max(18, Math.min(W - 18, r.x + r.vx * fScale));
+                r.y = Math.max(74, Math.min(H - 74, r.y + r.vy * fScale));
+
+                if (state.upgrades.trap > 0) {
+                    const trapSpots = [{ x: 20, y: 92 }, { x: 236, y: 92 }, { x: 20, y: 192 }, { x: 236, y: 192 }];
+                    const caught = trapSpots.some(ts => Math.hypot(r.x - ts.x, r.y - ts.y) < 14 && Math.random() < 0.012 * state.upgrades.trap * fScale);
+                    if (caught) {
+                        state.roaches.splice(i, 1);
+                        state.roachKillCount++;
+                        const earned = addPoints(8);
+                        playSfx('smack');
+                        addFloatingText(r.x, r.y - 8, `🪤罠捕獲!+${earned}P`, "#4ade80");
+                        continue;
+                    }
+                }
+
+                // 足元でAボタンを押しているか、タップ移動中・AIモード時に退治！
+                const distNurse = Math.hypot(nurse.x - r.x, nurse.y - r.y);
+                const isTargetingThisRoach = (nurse.targetType === 'roach' && nurse.targetId === r.id);
+                if (distNurse < 30 && (pad.a || state.slipperSwingTimer > 0 || isTargetingThisRoach || state.aiMode)) {
+                    state.roaches.splice(i, 1);
+                    state.roachKillCount++;
+                    addCombo("害虫駆除");
+                    const earned = addPoints(10);
+                    playSfx('smack');
+                    addFloatingText(r.x, r.y - 8, `🩴バシッ!!+${earned}P`, "#facc15");
+                    if (isTargetingThisRoach) {
+                        nurse.targetX = null;
+                        nurse.targetY = null;
+                        nurse.targetType = null;
+                    }
+                    continue;
+                } else if (distNurse < 10 && !pad.a && r.biteCooldown <= 0) {
+                    // 真上で放置すると驚いて少しメンタルダメージ
+                    r.biteCooldown = 2.5;
+                    const dmg = Math.max(1, 2.5 - state.upgrades.mental * 0.22);
+                    state.hp = Math.max(0, state.hp - dmg);
+                    playSfx('error');
+                    addFloatingText(nurse.x, nurse.y - 10, `🪳[A]かタップで叩け!`, "#f87171");
+                }
+
+                state.beds.forEach(b => {
+                    if (b.occupied && b.restTimer <= 0 && Math.hypot(r.x - b.x, r.y - b.y) < 48) {
+                        b.panic = Math.min(100, b.panic + 0.16 * roachSpeedScale * fScale);
+                    }
+                });
+            }
+
+            const ghostChance = (state.caffeine >= getCaffeineThreshold() ? 0.0045 : 0.0018 + state.level * 0.0004) * fScale;
+            if (Math.random() < ghostChance && state.timeSec > 6) {
+                spawnGhost();
+            }
+
+            for (let i = state.ghosts.length - 1; i >= 0; i--) {
+                const g = state.ghosts[i];
+                g.angle += 0.035 * fScale;
+
+                g.isLit = isPointInFlashlight(g.x, g.y);
+
+                if (g.isLit) {
+                    const lightMult = 1.0 + state.upgrades.light * 0.14;
+                    const drainRate = (nurse.isFlashing ? 2.4 : 1.3) * lightMult * fScale;
+                    g.hp -= drainRate;
+                    const pushAngle = Math.atan2(g.y - nurse.y, g.x - nurse.x);
+                    g.x += (Math.cos(pushAngle) * 0.5 + (Math.random() - 0.5) * 2.5) * fScale;
+                    g.y += (Math.sin(pushAngle) * 0.5 + (Math.random() - 0.5) * 2.5) * fScale;
+
+                    if (g.hp <= 0) {
+                        state.ghosts.splice(i, 1);
+                        state.ghostKillCount++;
+                        addCombo("除霊成功");
+                        const earned = addPoints(16);
+                        state.hp = Math.min(100, state.hp + 4);
+                        playSfx('exorcise');
+                        addFloatingText(g.x, g.y - 8, `🔦成仏!!+${earned}P`, "#facc15");
+                        continue;
+                    }
+                } else {
+                    const toNurseAngle = Math.atan2(nurse.y - g.y, nurse.x - g.x);
+                    g.x += (Math.cos(toNurseAngle) * 0.35 + Math.cos(g.angle) * 0.45) * fScale;
+                    g.y += (Math.sin(toNurseAngle) * 0.35 + Math.sin(g.angle * 1.3) * 0.45) * fScale;
+
+                    g.fakeCallCooldown -= fScale;
+                    if (g.fakeCallCooldown <= 0) {
+                        g.fakeCallCooldown = 150;
+                        const calmBeds = state.beds.filter(b => b.occupied && !b.needType);
+                        if (calmBeds.length > 0) {
+                            const pick = calmBeds[Math.floor(Math.random() * calmBeds.length)];
+                            pick.needType = 'fakecall';
+                            playSfx('call');
+                        }
+                    }
+
+                    if (Math.hypot(nurse.x - g.x, nurse.y - g.y) < 15 && nurse.spookTimer <= 0) {
+                        nurse.spookTimer = 1.5;
+                        const dmg = Math.max(1.5, 5.5 - state.upgrades.mental * 0.35);
+                        state.hp = Math.max(0, state.hp - dmg);
+                        playSfx('spook');
+                        addFloatingText(nurse.x, nurse.y - 10, `👻悪寒!-${Math.round(dmg)}HP`, "#c084fc");
+                    }
+                }
+
+                g.x = Math.max(20, Math.min(W - 20, g.x));
+                g.y = Math.max(45, Math.min(H - 45, g.y));
+            }
+
+            if (state.upgrades.robo > 0 && state.roboEnabled) {
+                updateSupportRobo(dt);
+            }
+
+            nurse.isTreating = false;
+            let statusText = nurse.isFlashing ? "🔦強ライト照射中!" : (state.aiMode ? "🤖AI自動巡回中" : "巡回中");
+
+            // 💻 ナースステーションでのカルテ入力（空き時間の有効活用＆インシデント残業免除ギミック）
+            const distToDesk = Math.hypot(nurse.x - STATIONS.desk.x, nurse.y - (STATIONS.desk.y + 16));
+            if (distToDesk < 24 && !nurse.isFlashing) {
+                statusText = "💻カルテ記録中...(残業短縮)";
+                const chartSpeed = (22 + state.upgrades.manual * 2.5) * dt;
+                state.chartProgress += chartSpeed;
+                if (state.chartProgress >= 100) {
+                    state.chartProgress = 0;
+                    state.chartCount++;
+                    addCombo("カルテ記録");
+                    const earned = addPoints(7);
+                    state.hp = Math.min(100, state.hp + 2);
+                    playSfx('heal');
+                    if (state.chartCount === 3) {
+                        addFloatingText(STATIONS.desk.x, STATIONS.desk.y - 8, `📋記録3件!残業1免除✨`, "#4ade80");
+                        showToast("✨ カルテ記録3件達成！万が一の転落インシデント残業が1件分免除されます！");
+                    } else {
+                        addFloatingText(STATIONS.desk.x, STATIONS.desk.y - 8, `💻記録完了!+${earned}P`, "#38bdf8");
+                    }
+                }
+            }
+
+            const monitorSlowdown = Math.max(0.50, 1.0 - state.upgrades.monitor * 0.045);
+            const baseDripDrain = 0.040 * stageCfg.dripMult * monitorSlowdown;
+            const basePanicRise = 0.032 * stageCfg.panicMult * monitorSlowdown;
+            // 不穏になってから転倒または急変するまでの猶予時間（緊張感を高めるため約6秒＋センサー特典）
+            const maxFallTime = 5.8 + state.upgrades.sensor * 0.85;
+
+            // 同時に不穏（diaper）になる患者数を最大4名まで許容
+            let currentDiaperCount = state.beds.filter(b => b.occupied && (b.needType === 'diaper' || b.isFallen)).length;
+
+            // ステージ特性に応じたコール種類の抽選関数
+            function pickRandomCallType() {
+                const rule = stageCfg.specialRule;
+                const r = Math.random();
+                if (rule === 'toilet_rush') {
+                    if (r < 0.38) return 'toilet';
+                    if (r < 0.72) return 'tea';
+                    if (r < 0.88) return 'omutsu';
+                    return 'meds';
+                } else if (rule === 'omutsu_rush') {
+                    if (r < 0.42) return 'omutsu';
+                    if (r < 0.72) return 'toilet';
+                    if (r < 0.88) return 'tea';
+                    return 'meds';
+                } else if (rule === 'icu') {
+                    if (r < 0.40) return 'meds';
+                    if (r < 0.70) return 'omutsu';
+                    if (r < 0.85) return 'toilet';
+                    return 'tea';
+                } else {
+                    // バランスよくオムツ・トイレ・お茶・内服が発生！
+                    if (r < 0.28) return 'omutsu';
+                    if (r < 0.56) return 'toilet';
+                    if (r < 0.80) return 'tea';
+                    return 'meds';
+                }
+            }
+
+            state.beds.forEach(b => {
+                if (!b.occupied) return;
+
+                // 💤 処置直後の安眠タイマー中は悪化しない
+                if (b.restTimer > 0) {
+                    b.restTimer = Math.max(0, b.restTimer - dt);
+                } else {
+                    const rate = b.rateFactor || 1.0;
+                    b.drip = Math.max(0, b.drip - baseDripDrain * rate * fScale);
+                    b.panic = Math.min(100, b.panic + basePanicRise * rate * fScale);
+
+                    // 🔔 オムツ・トイレ・お茶・内服コールのランダム発生
+                    const callChance = stageCfg.callRate * (b.isVip ? 1.35 : 1.0) * fScale;
+                    if (!b.needType && !b.isFallen && state.timeSec > 2.5 && Math.random() < callChance) {
+                        b.needType = pickRandomCallType();
+                        b.callWaitTimer = 0;
+                        playSfx('call');
+                    }
+                    // 💉 点滴残量低下による点滴コール
+                    if (!b.needType && b.drip <= 38) {
+                        b.needType = 'drip';
+                        b.callWaitTimer = 0;
+                        playSfx('call');
+                    }
+                }
+
+                // ⚠️ 重要仕様：ナースコール（オムツ・トイレ・お茶・内服・点滴）の対応が遅れるとイライラが急上昇し「💢不穏」へ悪化！
+                const isRoutineCall = (b.needType === 'omutsu' || b.needType === 'toilet' || b.needType === 'tea' || b.needType === 'meds' || b.needType === 'drip');
+                if (isRoutineCall) {
+                    b.callWaitTimer = (b.callWaitTimer || 0) + dt;
+                    const callInfo = CALL_TYPES[b.needType] || CALL_TYPES.meds;
+                    // コールを待たせている間、不穏ゲージがグングン上昇！
+                    b.panic = Math.min(100, b.panic + (callInfo.waitPanicRate * (b.isVip ? 1.25 : 1.0)) * dt);
+
+                    // コール放置でパニックが62%以上（または約5.5秒以上放置）になると我慢の限界で「💢不穏」に突入！
+                    if ((b.panic >= 62 || b.callWaitTimer >= 5.8) && !b.isFallen && currentDiaperCount < 4) {
+                        const prevLabel = callInfo.icon;
+                        b.needType = 'diaper';
+                        b.fallTimer = 0;
+                        currentDiaperCount++;
+                        playSfx('call');
+                        showToast(`⚠️ ${b.room}(${prevLabel})の対応が遅れ、患者が💢不穏状態に悪化！`);
+                        addFloatingText(b.x, b.y - 6, "💢コール放置で不穏化!", "#facc15");
+                    }
+                } else {
+                    b.callWaitTimer = 0;
+                }
+
+                // 自然にパニックが上がった場合も「💢不穏」へ移行
+                if (!b.needType && b.panic >= 65 && !b.isFallen && currentDiaperCount < 4) {
+                    b.needType = 'diaper';
+                    b.fallTimer = 0;
+                    currentDiaperCount++;
+                    playSfx('call');
+                }
+
+                // ⚠️「💢不穏」状態をすぐに対応しないと、ベッド柵を乗り越えて「💥転倒・転落」するか「🚨急変（コードブルー）」に直結！
+                if (b.needType === 'diaper' && !b.isFallen) {
+                    b.fallTimer += dt;
+                    if (b.fallTimer >= maxFallTime) {
+                        b.fallTimer = 0;
+                        b.treatProgress = 0;
+                        resetCombo();
+
+                        // 点滴が少ない時や一定確率(32%)で急変に直結、それ以外はベッドから転倒・転落！
+                        if (b.drip < 35 || Math.random() < 0.32) {
+                            b.needType = 'codeblue';
+                            playSfx('codeblue');
+                            showToast(`🚨 ${b.room}の不穏放置により容態が急変（コードブルー）！！`);
+                            addFloatingText(b.x, b.y, "🚨不穏から急変!!", "#ef4444");
+                        } else {
+                            b.isFallen = true;
+                            state.incidentCount++;
+                            const fallDmg = Math.max(4, 11 - state.upgrades.mental * 0.7);
+                            state.hp = Math.max(0, state.hp - fallDmg);
+                            playSfx('fall');
+                            showToast(`💥 ${b.room}の患者が待ちきれずベッドから転倒・転落！`);
+                            addFloatingText(b.x, b.y, "💥転倒インシデント!!", "#ef4444");
+                        }
+                    }
+                } else if (b.needType !== 'diaper') {
+                    b.fallTimer = Math.max(0, b.fallTimer - dt * 0.6);
+                }
+
+                // 転落したまま放置、または点滴0・パニック100到達でコードブルー（急変）！
+                if (b.isFallen) {
+                    b.panic = Math.min(100, b.panic + basePanicRise * 1.45 * fScale);
+                }
+                if ((b.drip <= 0 || (b.panic >= 100 && (!b.needType || b.isFallen))) && b.needType !== 'codeblue') {
+                    b.needType = 'codeblue';
+                    b.treatProgress = 0;
+                    playSfx('codeblue');
+                    showToast(`🚨 ${b.room}ベッドでコードブルー（急変）発生！！`);
+                }
+
+                if (b.needType === 'codeblue') {
+                    const cbDrain = Math.max(0.032, 0.088 - state.upgrades.mental * 0.006);
+                    state.hp = Math.max(0, state.hp - cbDrain * fScale);
+                }
+
+                const distToStand = Math.hypot(nurse.x - b.standX, nurse.y - b.standY);
+                const needsCare = b.isFallen || b.needType !== null || b.drip < 65 || b.panic > 40;
+
+                // 足元にいる状態で「Aボタン押下中」または「その患者をタップ指定中」または「AIモード」でのみ処置が進行！
+                const isActivelyInteracting = pad.a || (nurse.interactBedId === b.id) || state.aiMode;
+
+                if (distToStand < 20 && needsCare) {
+                    nurse.facingAngle = Math.atan2(b.y - nurse.y, b.x - nurse.x);
+
+                    if (!isActivelyInteracting) {
+                        statusText = "⚠️[💊A長押し]か[患者タップ]で処置!";
+                    } else if (b.needType === 'fakecall') {
+                        b.needType = null;
+                        nurse.interactBedId = null;
+                        playSfx('light');
+                        addFloatingText(b.x, b.y, "👻偽コール確認!", "#c084fc");
+                    } else {
+                        nurse.isTreating = true;
+                        if (b.needType === 'codeblue') statusText = "⚡緊急蘇生中!!";
+                        else if (b.isFallen) statusText = "🛏️転倒患者を救助中...";
+                        else if (b.needType === 'toilet') statusText = "🚽トイレ誘導・介助中...";
+                        else if (b.needType === 'omutsu') statusText = "🩲おむつ交換処置中...";
+                        else if (b.needType === 'tea') statusText = "🍵お茶・飲水介助中...";
+                        else if (b.needType === 'meds') statusText = "💊内服薬の与薬介助中...";
+                        else if (b.needType === 'diaper') statusText = "💢不穏・せん妄ケア中...";
+                        else statusText = "💉点滴ルート処置中...";
+
+                        const callCfg = CALL_TYPES[b.needType] || CALL_TYPES.drip;
+                        let treatSpeed = (1.72 + state.upgrades.tech * 0.14) + (state.caffeine > 20 ? 0.65 : 0) + (state.combo >= 5 ? 0.25 : 0);
+                        treatSpeed *= callCfg.speedMult;
+                        if (b.needType === 'meds' || b.needType === 'tea') {
+                            treatSpeed *= (1.0 + state.upgrades.manual * 0.08);
+                        }
+                        if (b.isFallen) {
+                            treatSpeed *= 0.62;
+                        }
+
+                        b.treatProgress += treatSpeed * fScale;
+                        if (b.treatProgress >= 100) {
+                            const prevNeed = b.needType;
+                            const wasCodeBlue = (prevNeed === 'codeblue');
+                            const wasFallen = b.isFallen;
+                            const rawPts = wasCodeBlue ? 18 : (wasFallen ? 13 : (callCfg.basePts || 10));
+                            const vipMult = b.isVip ? 2.5 : 1.0;
+                            addCombo("処置完了");
+                            const earned = addPoints(Math.round(rawPts * vipMult));
+                            state.treatedCount++;
+
+                            b.drip = 100;
+                            b.panic = 0;
+                            b.needType = null;
+                            b.callWaitTimer = 0;
+                            b.isFallen = false;
+                            b.fallTimer = 0;
+                            b.restTimer = 4.8; // 処置後しばらく安眠状態💤
+                            b.treatProgress = 0;
+                            if (nurse.interactBedId === b.id) {
+                                nurse.interactBedId = null;
+                            }
+
+                            const vipTag = b.isVip ? "👑VIP" : "";
+                            if (wasCodeBlue) {
+                                state.hp = Math.min(100, state.hp + 5 + Math.floor(state.upgrades.tech * 0.5));
+                                addFloatingText(b.x, b.y, `⚡${vipTag}蘇生!+${earned}P`, "#4ade80");
+                            } else if (wasFallen) {
+                                addFloatingText(b.x, b.y, `🛏️${vipTag}転倒救助!+${earned}P`, "#fbbf24");
+                            } else if (prevNeed === 'toilet') {
+                                state.hp = Math.min(100, state.hp + 2);
+                                addFloatingText(b.x, b.y, `🚽${vipTag}トイレ完了!+${earned}P`, "#a3e635");
+                            } else if (prevNeed === 'omutsu') {
+                                state.hp = Math.min(100, state.hp + 2);
+                                addFloatingText(b.x, b.y, `🩲${vipTag}オムツ完了!+${earned}P`, "#fb923c");
+                            } else if (prevNeed === 'tea') {
+                                state.hp = Math.min(100, state.hp + 2);
+                                addFloatingText(b.x, b.y, `🍵${vipTag}お茶完了!+${earned}P`, "#2dd4bf");
+                            } else if (prevNeed === 'meds') {
+                                state.hp = Math.min(100, state.hp + 2);
+                                addFloatingText(b.x, b.y, `💊${vipTag}内服完了!+${earned}P`, "#c084fc");
+                            } else {
+                                state.hp = Math.min(100, state.hp + 1.5 + Math.floor(state.upgrades.tech * 0.3));
+                                addFloatingText(b.x, b.y, `💉${vipTag}処置完了!+${earned}P`, "#38bdf8");
+                            }
+                            playSfx('heal');
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('control-status').innerText = statusText;
+
+            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = state.floatingTexts[i];
+                ft.y -= 0.45 * fScale;
+                ft.life -= fScale;
+                if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+            }
+
+            if (state.hp <= 0) {
+                triggerGameOver("急変ラッシュにより看護師の精神力が限界(0)に達しました…");
+                return;
+            }
+
+            updateHud();
+        }
+
+        /* ==============================================================
+         * 9. HUD・ステージクリア・ゲームオーバー・お助けロボ更新
+         * ============================================================== */
+        function updateSupportRobo(dt) {
+            const roboLv = state.upgrades.robo;
+            if (supportRobo.cooldown > 0) supportRobo.cooldown -= dt;
+            if (supportRobo.assistVisualTimer > 0) supportRobo.assistVisualTimer -= dt;
+
+            // 近くにゴキブリがいればロボがレーザー駆除を手伝う（Lv3以上）
+            if (roboLv >= 3 && state.roaches.length > 0 && supportRobo.cooldown <= 0) {
+                const r = state.roaches[0];
+                if (Math.hypot(r.x - supportRobo.x, r.y - supportRobo.y) < 28) {
+                    state.roaches.shift();
+                    state.roachKillCount++;
+                    const earned = addPoints(8);
+                    supportRobo.cooldown = 2.0;
+                    supportRobo.assistVisualTimer = 0.4;
+                    playSfx('smack');
+                    addFloatingText(r.x, r.y - 6, `🤖駆除!+${earned}P`, "#38bdf8");
+                    return;
+                }
+            }
+
+            // お助けロボは見守り・応急安定化サポート（最終処置は看護師が行う）
+            let targetBed = null;
+            let maxNeed = 0;
+            state.beds.forEach(b => {
+                if (!b.occupied) return;
+                const needScore = (100 - b.drip) + b.panic + (b.fallTimer * 12) + (b.needType === 'codeblue' ? 90 : 0);
+                if (needScore > maxNeed) {
+                    maxNeed = needScore;
+                    targetBed = b;
+                }
+            });
+
+            if (targetBed && maxNeed > 50) {
+                supportRobo.targetX = targetBed.standX;
+                supportRobo.targetY = targetBed.standY;
+                const d = Math.hypot(targetBed.standX - supportRobo.x, targetBed.standY - supportRobo.y);
+                if (d < 16 && supportRobo.cooldown <= 0) {
+                    const assistAmt = 16 + roboLv * 2.8;
+                    targetBed.drip = Math.min(95, targetBed.drip + assistAmt);
+                    targetBed.panic = Math.max(8, targetBed.panic - assistAmt);
+                    targetBed.fallTimer = Math.max(0, targetBed.fallTimer - (2.0 + roboLv * 0.35));
+                    supportRobo.cooldown = Math.max(2.0, 5.2 - roboLv * 0.3);
+                    supportRobo.assistVisualTimer = 0.45;
+                    addFloatingText(targetBed.x, targetBed.y, `🤖見守り緩和!`, "#38bdf8");
+                }
+            } else {
+                supportRobo.targetX = 128 + Math.cos(state.frameCount * 0.02) * 45;
+                supportRobo.targetY = 144;
+            }
+
+            const rdx = supportRobo.targetX - supportRobo.x;
+            const rdy = supportRobo.targetY - supportRobo.y;
+            const rdist = Math.hypot(rdx, rdy);
+            const roboSpeed = 1.0 + roboLv * 0.14;
+            if (rdist > 2) {
+                supportRobo.x += (rdx / rdist) * roboSpeed;
+                supportRobo.y += (rdy / rdist) * roboSpeed;
+            }
+        }
+
+        function updateHud() {
+            const occupiedCount = state.beds.filter(b => b.occupied).length;
+            document.getElementById('hud-level').innerText = `LV.${state.level}`;
+            document.getElementById('hud-patients').innerText = `患者:${occupiedCount}名`;
+
+            const totalUpgrades = getTotalUpgradeLevels();
+            document.getElementById('hud-perks').innerText = totalUpgrades > 0
+                ? `${getCareerTitle()}(+${totalUpgrades})`
+                : '🔰新人ナース';
+
+            const progress = Math.min(1, state.timeSec / state.maxTimeSec);
+            const elapsedMinutes = Math.floor(progress * 480);
+            const rawHour = (22 + Math.floor(elapsedMinutes / 60)) % 24;
+            const rawMin = Math.floor((elapsedMinutes % 60) / 10) * 10;
+            const hh = String(rawHour).padStart(2, '0');
+            const mm = String(rawMin).padStart(2, '0');
+            document.getElementById('hud-clock').innerText = `${hh}:${mm}`;
+
+            document.getElementById('hud-hp-bar').style.width = `${Math.max(0, state.hp)}%`;
+            document.getElementById('hud-bat-bar').style.width = `${Math.max(0, state.battery)}%`;
+            document.getElementById('hud-caf-bar').style.width = `${Math.min(100, state.caffeine)}%`;
+            document.getElementById('hud-score').innerText = `💰${state.points}P`;
+        }
+
+        function triggerLevelClear() {
+            state.mode = 'clear';
+            playSfx('clear');
+
+            // 💻 カルテ記録を3回以上行っていれば、転落インシデント1件分の残業を免除！
+            const forgivenIncidents = state.chartCount >= 3 ? Math.min(1, state.incidentCount) : 0;
+            const effectiveIncidents = Math.max(0, state.incidentCount - forgivenIncidents);
+
+            const curCfg = getStageConfig(state.level);
+            const bossMult = curCfg.specialRule === 'boss' ? 1.5 : 1.0;
+            const rawBonus = Math.round((28 + state.level * 10 + Math.floor(state.hp * 0.25) + state.maxCombo * 2) * bossMult);
+            const penaltyRate = Math.max(0.15, 0.25 - state.upgrades.manual * 0.012);
+            const incidentPenaltyFactor = Math.max(0.2, 1.0 - effectiveIncidents * penaltyRate);
+            const finalBaseBonus = Math.max(8, Math.round(rawBonus * incidentPenaltyFactor));
+            const clearBonus = addPoints(finalBaseBonus);
+
+            if (state.level + 1 > state.maxUnlockedLevel) {
+                state.maxUnlockedLevel = state.level + 1;
+            }
+
+            const nextCfg = getStageConfig(state.level + 1);
+            document.getElementById('clear-title').innerText = `STAGE ${state.level} クリア！(+${clearBonus}P)`;
+            document.getElementById('stat-treated').innerText = `${state.treatedCount}回 / 最大${state.maxCombo}連鎖`;
+            document.getElementById('stat-ghosts').innerText = `💻${state.chartCount}件 / 👻${state.ghostKillCount}・🪳${state.roachKillCount}`;
+
+            const incEl = document.getElementById('stat-incidents');
+            const reportBox = document.getElementById('stat-report-box');
+            if (state.incidentCount === 0) {
+                incEl.innerText = `0件 (ノーインシデント✨)`;
+                incEl.className = 'text-emerald-400 font-bold';
+                reportBox.classList.add('hidden');
+            } else if (effectiveIncidents === 0 && forgivenIncidents > 0) {
+                incEl.innerText = `${state.incidentCount}件 (💻事前記録で残業免除✨)`;
+                incEl.className = 'text-cyan-300 font-bold';
+                reportBox.classList.remove('hidden');
+                reportBox.innerText = `💡 転落1件が発生しましたが、夜勤中にカルテ記録を3件以上済ませていたため定時退社できました！`;
+            } else {
+                const overtimeHours = effectiveIncidents * 2;
+                const leaveHour = 6 + overtimeHours;
+                incEl.innerText = `${state.incidentCount}件 (残業+${overtimeHours}h)`;
+                incEl.className = 'text-rose-400 font-bold blink-text';
+                reportBox.classList.remove('hidden');
+                reportBox.innerText = `📝 転落インシデント報告書${effectiveIncidents}枚の作成＆師長面談により ${leaveHour}:00 退勤（ボーナス減額）…`;
+            }
+
+            document.getElementById('clear-points').innerText = `${state.points}P`;
+            document.getElementById('btn-next-stage').innerText = `▶ 次へ: STAGE ${state.level + 1} (${nextCfg.name})`;
+
+            let rank = "Sランク (06:00 定時退社!)";
+            let rankCode = 'S';
+            if (effectiveIncidents >= 2) { rank = `Cランク (インシデント残業地獄)`; rankCode = 'C'; }
+            else if (effectiveIncidents === 1) { rank = `Bランク (08:00 報告書残業)`; rankCode = 'B'; }
+            else if (state.hp < 55) { rank = "Aランク (06:30 申し送り延長)"; rankCode = 'A'; }
+            document.getElementById('stat-rank').innerText = rank;
+
+            // ベストランクの記録更新
+            const prevRank = state.stageRanks[state.level];
+            const rankOrder = { 'S': 4, 'A': 3, 'B': 2, 'C': 1 };
+            if (!prevRank || rankOrder[rankCode] > rankOrder[prevRank]) {
+                state.stageRanks[state.level] = rankCode;
+            }
+
+            document.getElementById('clear-next-info').innerText =
+                `次STAGE ${state.level + 1}：「${nextCfg.name}」(${nextCfg.beds.length}名) - ${nextCfg.desc}`;
+
+            updateHud();
+            document.getElementById('overlay-clear').classList.remove('hidden');
+        }
+
+        function triggerGameOver(reason) {
+            state.mode = 'gameover';
+            playSfx('gameover');
+            document.getElementById('gameover-reason').innerText = reason;
+            document.getElementById('gameover-score').innerText = `所持ポイント: ${state.points}P / 到達: LEVEL ${state.level}`;
+            updateHud();
+            document.getElementById('overlay-gameover').classList.remove('hidden');
+        }
+
+        /* ==============================================================
+         * 10. 8-BIT ファミコン風キャンバス＆懐中電灯ライティング描画
+         * ============================================================== */
+        function render() {
+            ctx.fillStyle = '#050811';
+            ctx.fillRect(0, 0, W, H);
+
+            drawTiledFloor(8, 12, W - 16, 92, '#0c1524', '#101c30');
+            drawTiledFloor(8, 104, W - 16, 80, '#141222', '#1b182c');
+            drawTiledFloor(8, 184, W - 16, 92, '#0c1524', '#101c30');
+
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(8, 12, W - 16, H - 24);
+
+            ctx.fillStyle = '#26354d';
+            [66, 128, 190].forEach(cx => {
+                for (let y = 16; y < 74; y += 6) ctx.fillRect(cx, y, 2, 4);
+                for (let y = 214; y < 272; y += 6) ctx.fillRect(cx, y, 2, 4);
+            });
+
+            drawNurseStation();
+            drawFlashlightCone();
+
+            state.beds.forEach(b => drawBedAndPatient(b));
+
+            if (nurse.targetX !== null && nurse.targetY !== null) {
+                ctx.strokeStyle = (state.frameCount % 16 < 8) ? '#facc15' : '#38bdf8';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(nurse.targetX - 5, nurse.targetY - 5, 10, 10);
+            }
+
+            if (state.upgrades.trap > 0) {
+                const trapSpots = [{ x: 20, y: 92 }, { x: 236, y: 92 }, { x: 20, y: 192 }, { x: 236, y: 192 }];
+                trapSpots.forEach(ts => {
+                    ctx.fillStyle = '#065f46';
+                    ctx.fillRect(ts.x - 6, ts.y - 5, 12, 10);
+                    ctx.strokeStyle = '#34d399';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(ts.x - 6, ts.y - 5, 12, 10);
+                });
+            }
+
+            state.roaches.forEach(r => {
+                const rSprite = (Math.floor(state.frameCount / 4) % 2 === 0) ? SPRITE_ROACH_1 : SPRITE_ROACH_2;
+                drawSprite(ctx, rSprite, r.x - 6, r.y - 6, 1);
+            });
+
+            if (state.upgrades.robo > 0 && state.roboEnabled) {
+                drawSprite(ctx, SPRITE_ROBO, supportRobo.x - 6, supportRobo.y - 6, 1);
+                if (supportRobo.assistVisualTimer > 0) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(supportRobo.x - 9, supportRobo.y - 9, 18, 18);
+                }
+            }
+
+            // 👨‍⚕️ 当直医の緊急回診演出
+            if (state.doctorActiveTimer > 0) {
+                const docX = STATIONS.desk.x - 24;
+                const docY = STATIONS.desk.y + 18;
+                const docPal = { ...PALETTE, 'W': '#e0f2fe', 'P': '#0284c7', 'R': '#38bdf8' };
+                drawSprite(ctx, SPRITE_NURSE_1, docX - 7, docY - 8, 1, docPal);
+                ctx.fillStyle = '#fde047';
+                ctx.font = '9px DotGothic16, monospace';
+                ctx.fillText('👨‍⚕️Dr.回診中!', docX - 18, docY - 12);
+            }
+
+            drawNurse();
+
+            state.ghosts.forEach(g => drawGhost(g));
+
+            // ⚡落雷停電ギミック発生中の暗闇オーバーレイ（ペンライト周囲のみ見える）
+            if (state.blackoutTimer > 0) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(2, 4, 12, 0.86)';
+                ctx.beginPath();
+                ctx.rect(0, 0, W, H);
+                const lightLv = state.upgrades.light;
+                const radius = (nurse.isFlashing ? 115 : 72) + lightLv * 7;
+                const spread = (nurse.isFlashing ? 0.78 : 0.52) + lightLv * 0.03;
+                ctx.moveTo(nurse.x, nurse.y);
+                ctx.arc(nurse.x, nurse.y, radius, nurse.facingAngle - spread, nurse.facingAngle + spread, false);
+                ctx.closePath();
+                ctx.fill('evenodd');
+
+                ctx.fillStyle = '#facc15';
+                ctx.font = '10px DotGothic16, monospace';
+                ctx.fillText(`⚡停電中! 残り${state.blackoutTimer.toFixed(1)}秒`, 78, 22);
+                ctx.restore();
+            }
+
+            if (state.caffeine >= 65) {
+                ctx.strokeStyle = (state.frameCount % 20 < 10) ? 'rgba(192, 132, 252, 0.5)' : 'rgba(74, 222, 128, 0.4)';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(2, 2, W - 4, H - 4);
+            }
+
+            state.floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.font = '10px DotGothic16, monospace';
+                ctx.textAlign = 'center';
+                const safeX = Math.max(42, Math.min(W - 42, Math.floor(ft.x)));
+                const safeY = Math.max(16, Math.min(H - 10, Math.floor(ft.y)));
+                ctx.fillStyle = '#000000';
+                ctx.fillText(ft.text, safeX + 1, safeY + 1);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, safeX, safeY);
+                ctx.restore();
+            });
+        }
+
+        function drawTiledFloor(x, y, w, h, c1, c2) {
+            const tileSize = 16;
+            for (let ty = y; ty < y + h; ty += tileSize) {
+                for (let tx = x; tx < x + w; tx += tileSize) {
+                    const isEven = ((tx / tileSize) + (ty / tileSize)) % 2 === 0;
+                    ctx.fillStyle = isEven ? c1 : c2;
+                    ctx.fillRect(tx, ty, Math.min(tileSize, x + w - tx), Math.min(tileSize, y + h - ty));
+                }
+            }
+        }
+
+        function drawFlashlightCone() {
+            const lightLv = state.upgrades.light;
+            const radius = (nurse.isFlashing ? 122 : 76) + lightLv * 12;
+            const spread = (nurse.isFlashing ? 0.82 : 0.54) + lightLv * 0.055;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(nurse.x, nurse.y);
+            ctx.arc(nurse.x, nurse.y, radius, nurse.facingAngle - spread, nurse.facingAngle + spread);
+            ctx.closePath();
+
+            const grad = ctx.createRadialGradient(nurse.x, nurse.y, 4, nurse.x, nurse.y, radius);
+            if (nurse.isFlashing) {
+                grad.addColorStop(0, 'rgba(254, 240, 138, 0.62)');
+                grad.addColorStop(0.6, 'rgba(250, 204, 21, 0.32)');
+                grad.addColorStop(1, 'rgba(250, 204, 21, 0.0)');
+            } else {
+                grad.addColorStop(0, 'rgba(254, 249, 195, 0.38)');
+                grad.addColorStop(0.7, 'rgba(253, 224, 71, 0.16)');
+                grad.addColorStop(1, 'rgba(253, 224, 71, 0.0)');
+            }
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            if (nurse.isFlashing && state.frameCount % 4 < 2) {
+                ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawNurseStation() {
+            const dx = STATIONS.desk.x - 36;
+            const dy = STATIONS.desk.y - 14;
+
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.07)';
+            ctx.fillRect(dx - 8, dy - 6, 88, 40);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(dx, dy, 72, 28);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(dx, dy, 72, 28);
+
+            ctx.fillStyle = '#022c22';
+            ctx.fillRect(dx + 5, dy + 4, 36, 12);
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < 32; i += 2) {
+                const waveY = dy + 10 + ((i + state.frameCount) % 12 === 0 ? -4 : ((i + state.frameCount) % 12 === 2 ? 3 : 0));
+                if (i === 0) ctx.moveTo(dx + 7 + i, waveY);
+                else ctx.lineTo(dx + 7 + i, waveY);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(dx + 53, dy + 5, 4, 10);
+            ctx.fillRect(dx + 50, dy + 8, 10, 4);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '9px DotGothic16, monospace';
+            ctx.fillText(`ナースST(💻${state.chartCount})`, dx + 6, dy + 25);
+
+            // カルテ記録プログレスバー
+            if (state.chartProgress > 0) {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(dx + 6, dy - 6, 60, 4);
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(dx + 7, dy - 5, Math.floor(58 * (state.chartProgress / 100)), 2);
+            }
+
+            const ex = STATIONS.energy.x - 14;
+            const ey = STATIONS.energy.y - 14;
+            ctx.fillStyle = '#064e3b';
+            ctx.fillRect(ex, ey, 28, 28);
+            ctx.strokeStyle = '#4ade80';
+            ctx.strokeRect(ex, ey, 28, 28);
+            ctx.fillStyle = '#4ade80';
+            ctx.font = '9px DotGothic16, monospace';
+            ctx.fillText('🥤翼', ex + 3, ey + 13);
+            ctx.fillStyle = '#a7f3d0';
+            ctx.fillText('加速', ex + 5, ey + 24);
+
+            const wx = STATIONS.water.x - 14;
+            const wy = STATIONS.water.y - 14;
+            ctx.fillStyle = '#0c4a6e';
+            ctx.fillRect(wx, wy, 28, 28);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.strokeRect(wx, wy, 28, 28);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText('💧水', wx + 3, wy + 13);
+            ctx.fillStyle = '#bae6fd';
+            ctx.fillText('覚醒', wx + 5, wy + 24);
+        }
+
+        function drawBedAndPatient(b) {
+            const maxFallTime = 5.8 + state.upgrades.sensor * 0.85;
+            const isAboutToFall = (b.needType === 'diaper' && !b.isFallen && b.fallTimer > maxFallTime * 0.45);
+            const isWaitingCall = (b.callWaitTimer > 3.0 && !b.isFallen);
+            const shakeX = isAboutToFall ? ((state.frameCount % 4 < 2) ? -1.8 : 1.8) : (isWaitingCall ? ((state.frameCount % 6 < 3) ? -0.8 : 0.8) : 0);
+
+            const bx = b.x - 14 + shakeX;
+            const by = b.y - 18;
+            const bw = 28;
+            const bh = 36;
+
+            if (b.needType === 'codeblue' && state.frameCount % 12 < 6) {
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+                ctx.fillRect(bx - 8, by - 8, bw + 16, bh + 16);
+            }
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.strokeStyle = b.needType === 'codeblue' && (state.frameCount % 10 < 5)
+                ? '#ef4444'
+                : (b.isVip ? '#facc15' : '#94a3b8');
+            ctx.lineWidth = b.isVip ? 2 : 1.5;
+            ctx.strokeRect(bx, by, bw, bh);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(bx + 5, by + 3, bw - 10, 6);
+
+            if (!b.occupied) {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(bx + 2, by + 11, bw - 4, bh - 13);
+                ctx.fillStyle = '#475569';
+                ctx.font = '8px DotGothic16, monospace';
+                ctx.fillText('空床', bx + 6, by + 25);
+                return;
+            }
+
+            // 👑 VIP患者ベッドの王冠バッジ表示
+            if (b.isVip && !b.needType && !b.isFallen) {
+                ctx.fillStyle = '#fde047';
+                ctx.font = '8px DotGothic16, monospace';
+                ctx.fillText('👑VIP', bx + 3, by + 28);
+            }
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(bx - 5, by + 2, 2, 26);
+            ctx.fillStyle = b.drip < 35 ? '#ef4444' : '#38bdf8';
+            ctx.fillRect(bx - 7, by + 3, 5, 7);
+
+            let faceColor = '#fdba74';
+            if (b.needType === 'codeblue') faceColor = '#f87171';
+            else if (b.needType) faceColor = '#fde047';
+
+            ctx.fillStyle = '#291811';
+            ctx.fillRect(bx + 8, by + 4, 12, 4);
+            ctx.fillStyle = faceColor;
+            ctx.fillRect(bx + 8, by + 7, 12, 7);
+
+            ctx.fillStyle = '#0f172a';
+            if (b.needType === 'codeblue') {
+                ctx.fillRect(bx + 10, by + 9, 2, 2);
+                ctx.fillRect(bx + 16, by + 9, 2, 2);
+            } else {
+                ctx.fillRect(bx + 10, by + 10, 2, 1);
+                ctx.fillRect(bx + 16, by + 10, 2, 1);
+            }
+
+            let blanketColor = b.shirtColor;
+            if (b.needType === 'codeblue') {
+                blanketColor = (state.frameCount % 8 < 4) ? '#ef4444' : '#991b1b';
+            }
+            ctx.fillStyle = blanketColor;
+            ctx.fillRect(bx + 2, by + 15, bw - 4, bh - 17);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(bx + 2, by + 14, bw - 4, 3);
+
+            const gaugeY = by + bh + 2;
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(bx, gaugeY, bw, 3);
+            ctx.fillStyle = b.drip < 30 ? '#ef4444' : '#38bdf8';
+            ctx.fillRect(bx + 1, gaugeY + 0.5, Math.floor((bw - 2) * (b.drip / 100)), 2);
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(bx, gaugeY + 4, bw, 3);
+            ctx.fillStyle = b.panic > 70 ? '#ef4444' : '#f59e0b';
+            ctx.fillRect(bx + 1, gaugeY + 4.5, Math.floor((bw - 2) * (b.panic / 100)), 2);
+
+            if (b.treatProgress > 0) {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(bx, by - 7, bw, 5);
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(bx + 1, by - 6, Math.floor((bw - 2) * (b.treatProgress / 100)), 3);
+            }
+
+            // 💤 処置直後の安眠マーク表示
+            if (b.restTimer > 0 && !b.needType && !b.isFallen) {
+                ctx.fillStyle = '#a5f3fc';
+                ctx.font = '8px DotGothic16, monospace';
+                ctx.fillText('💤安眠', bx + 2, by - 2);
+            }
+
+            // ⚠️不穏放置による転倒・転落カウントダウン警告バー
+            if (b.needType === 'diaper' && !b.isFallen && b.fallTimer > 0) {
+                const fallRatio = Math.min(1, b.fallTimer / maxFallTime);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(bx, by - 12, bw, 4);
+                ctx.fillStyle = (state.frameCount % 6 < 3) ? '#ef4444' : '#f97316';
+                ctx.fillRect(bx + 1, by - 11, Math.floor((bw - 2) * fallRatio), 2);
+            }
+            // 💥ベッドから転倒・転落してしまった患者のドット描画（右端ベッドは左通路側に描画して見切れ防止）
+            if (b.isFallen) {
+                const isRightEdge = (b.id === 3 || b.id === 7);
+                const fx = isRightEdge ? (bx - 13) : (bx + bw + 2);
+                const fy = by + 16;
+                ctx.fillStyle = (state.frameCount % 10 < 5) ? '#ef4444' : '#fbbf24';
+                ctx.fillRect(fx, fy, 11, 8);
+                ctx.fillStyle = '#fdba74';
+                ctx.fillRect(fx + 2, fy - 4, 7, 5);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '8px DotGothic16, monospace';
+                ctx.fillText('転落!', fx - 4, fy + 16);
+            }
+
+            // 足元にいる時にAボタン・タップ処置を促すガイド表示
+            const distToStand = Math.hypot(nurse.x - b.standX, nurse.y - b.standY);
+            const needsCare = b.isFallen || b.needType !== null || b.drip < 65 || b.panic > 40;
+            if (distToStand < 20 && needsCare && !nurse.isTreating && state.frameCount % 16 < 11) {
+                ctx.fillStyle = '#dc2626';
+                ctx.fillRect(bx - 4, by + 12, 36, 12);
+                ctx.strokeStyle = '#ffffff';
+                ctx.strokeRect(bx - 4, by + 12, 36, 12);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '9px DotGothic16, monospace';
+                ctx.fillText('🅰️押/TAP', bx - 2, by + 21);
+            }
+
+            if (b.needType || b.isFallen) {
+                const bounce = (state.frameCount % 20 < 10) ? -2 : 0;
+                const popY = b.id < 4 ? by - 14 + bounce : by + bh + 8 + bounce;
+
+                ctx.font = '9px DotGothic16, monospace';
+                let iconStr = '💉点滴';
+                let textColor = '#38bdf8';
+                if (b.needType === 'codeblue') {
+                    iconStr = '🚨急変';
+                    textColor = '#ffffff';
+                } else if (b.isFallen) {
+                    iconStr = '💥転倒';
+                    textColor = '#fde047';
+                } else if (b.needType === 'diaper') {
+                    iconStr = '💢不穏';
+                    textColor = '#facc15';
+                } else if (b.needType === 'omutsu') {
+                    iconStr = '🩲オムツ';
+                    textColor = '#fb923c';
+                } else if (b.needType === 'toilet') {
+                    iconStr = '🚽トイレ';
+                    textColor = '#a3e635';
+                } else if (b.needType === 'tea') {
+                    iconStr = '🍵お茶';
+                    textColor = '#2dd4bf';
+                } else if (b.needType === 'meds') {
+                    iconStr = '💊内服';
+                    textColor = '#c084fc';
+                } else if (b.needType === 'fakecall') {
+                    const flicker = (state.frameCount % 26 < 7);
+                    iconStr = flicker ? '👻幻覚' : '🍵お茶';
+                    textColor = flicker ? '#c084fc' : '#2dd4bf';
+                }
+
+                // 文字幅に合わせて枠のサイズを自動調整し、ベッド中央揃えで描画
+                const textW = ctx.measureText(iconStr).width;
+                const boxW = Math.max(36, Math.ceil(textW + 6));
+                const boxX = Math.floor(b.x - boxW / 2);
+                const isUrgentWait = (b.callWaitTimer > 3.5 && !b.isFallen && b.needType !== 'diaper' && b.needType !== 'codeblue');
+
+                ctx.fillStyle = (b.needType === 'codeblue' || b.isFallen)
+                    ? '#dc2626'
+                    : (isUrgentWait && state.frameCount % 8 < 4 ? '#7c2d12' : '#020617');
+                ctx.fillRect(boxX, popY, boxW, 13);
+                ctx.strokeStyle = (b.needType === 'codeblue' || b.isFallen)
+                    ? '#fde047'
+                    : (b.needType === 'diaper' || isUrgentWait ? '#f97316' : '#38bdf8');
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(boxX, popY, boxW, 13);
+
+                ctx.save();
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(iconStr, b.x, popY + 10);
+                ctx.restore();
+            }
+        }
+
+        function drawGhost(g) {
+            ctx.save();
+            const shakeX = g.isLit ? (Math.random() - 0.5) * 4 : 0;
+            const offsetY = Math.sin(state.frameCount * 0.12) * 3;
+            ctx.globalAlpha = g.isLit
+                ? (state.frameCount % 4 < 2 ? 0.95 : 0.45)
+                : (0.75 + Math.sin(state.frameCount * 0.1) * 0.18);
+
+            const spr = (g.isLit && state.frameCount % 6 < 3) ? SPRITE_GHOST_HIT : SPRITE_GHOST_NORMAL;
+            drawSprite(ctx, spr, g.x - 7 + shakeX, g.y - 7 + offsetY, 1);
+
+            if (g.hp < 100) {
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(g.x - 10, g.y - 13, 20, 4);
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(g.x - 9, g.y - 12, Math.floor(18 * (g.hp / 100)), 2);
+            }
+            ctx.restore();
+        }
+
+        function drawNurse() {
+            // 🩴 Aボタン押下時のスリッパ・スイング衝撃波エフェクト
+            if (state.slipperSwingTimer > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#fde047';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(nurse.x, nurse.y, 24, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            const spr = nurse.animFrame === 0 ? SPRITE_NURSE_1 : SPRITE_NURSE_2;
+            let customPal = null;
+            if (nurse.spookTimer > 0) {
+                customPal = { ...PALETTE, 'W': '#d8b4fe', 'P': '#9333ea' };
+            } else if (state.caffeine > 20) {
+                customPal = { ...PALETTE, 'P': '#4ade80' };
+            } else if (state.upgrades.crown > 0) {
+                customPal = { ...PALETTE, 'R': '#facc15' };
+            }
+            drawSprite(ctx, spr, nurse.x - 7, nurse.y - 8, 1, customPal);
+
+            if (nurse.isTreating && state.frameCount % 8 < 4) {
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(nurse.x + 8, nurse.y - 6, 3, 3);
+                ctx.fillRect(nurse.x - 10, nurse.y - 4, 3, 3);
+            }
+        }
+
+        /* ==============================================================
+         * 11. ゲームループ起動
+         * ============================================================== */
+        function gameLoop(now) {
+            const dt = Math.min(0.1, (now - lastTime) / 1000);
+            lastTime = now;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            // モバイル端末でのダブルタップ拡大やピンチズーム誤作動を防止
+            document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+            document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+
+            initJoystick();
+            updateStartScreenUi();
+            updateHud();
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
